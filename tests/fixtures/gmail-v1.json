@@ -1,0 +1,109 @@
+{
+  "id": "gmail-practice-v1",
+  "title": "Регистрация почты Gmail — учебный тренажёр",
+  "start": "address",
+  "steps": [
+    {
+      "id": "address",
+      "type": "input",
+      "title": "Открыть Gmail",
+      "screenTitle": "Учебный браузер",
+      "label": "Адресная строка",
+      "expected": "gmail.com",
+      "rule": "url",
+      "next": "register",
+      "instruction": "Введите gmail.com в адресную строку и нажмите Enter или стрелку перехода.",
+      "error": "Неверный адрес. Введите gmail.com, без опечаток."
+    },
+    {
+      "id": "register",
+      "type": "choice",
+      "title": "Начать регистрацию",
+      "screenTitle": "Вход в Google",
+      "options": [
+        {
+          "label": "Создать аккаунт",
+          "next": "type"
+        },
+        {
+          "label": "Далее / войти",
+          "wrong": true,
+          "next": "register"
+        }
+      ],
+      "instruction": "Нажмите «Создать аккаунт», чтобы начать регистрацию новой почты.",
+      "error": "Для новой почты нужно нажать «Создать аккаунт», а не выполнять вход."
+    },
+    {
+      "id": "type",
+      "type": "choice",
+      "title": "Тип аккаунта",
+      "screenTitle": "Создать аккаунт",
+      "options": [
+        {
+          "label": "Для личного использования",
+          "next": "name"
+        },
+        {
+          "label": "Для ребёнка",
+          "wrong": true,
+          "next": "type"
+        },
+        {
+          "label": "Для работы или бизнеса",
+          "wrong": true,
+          "next": "type"
+        }
+      ],
+      "instruction": "Выберите тип аккаунта «Для личного использования».",
+      "error": "Для этого задания нужен личный аккаунт. Выберите «Для личного использования»."
+    },
+    {
+      "id": "name",
+      "type": "input",
+      "title": "Указать имя",
+      "screenTitle": "Создайте аккаунт Google",
+      "label": "Имя",
+      "expected": "Айдын",
+      "next": "mailtype",
+      "instruction": "Введите учебное имя «Айдын» и нажмите «Далее».",
+      "error": "Введите учебное имя «Айдын»."
+    },
+    {
+      "id": "mailtype",
+      "type": "choice",
+      "title": "Выбрать вариант почты",
+      "screenTitle": "Выберите адрес почты",
+      "selectBeforeContinue": true,
+      "options": [
+        {
+          "label": "Создать адрес Gmail",
+          "next": "username"
+        },
+        {
+          "label": "Использовать существующую почту",
+          "wrong": true,
+          "next": "mailtype"
+        }
+      ],
+      "instruction": "Выберите «Создать адрес Gmail», затем нажмите «Далее».",
+      "error": "Сначала выберите «Создать адрес Gmail». Использование существующей почты не подходит для задания."
+    },
+    {
+      "id": "username",
+      "type": "input",
+      "title": "Придумать адрес",
+      "screenTitle": "Новый адрес Gmail",
+      "label": "Имя пользователя (без @gmail.com)",
+      "expected": "aidyn.practice",
+      "next": "finish",
+      "instruction": "Введите имя почтового ящика «aidyn.practice» и завершите упражнение.",
+      "error": "Введите aidyn.practice без @gmail.com."
+    },
+    {
+      "id": "finish",
+      "type": "end",
+      "title": "Завершение"
+    }
+  ]
+}

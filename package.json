@@ -1,0 +1,11 @@
+{
+  "name": "scena-prototype",
+  "private": true,
+  "version": "0.3.0",
+  "scripts": {
+    "dev": "python3 -m http.server 8000 --bind 127.0.0.1",
+    "build": "python3 scripts/build.py",
+    "check": "python3 scripts/check.py",
+    "test": "node tests/author.test.cjs && node tests/branch-player.test.cjs && node tests/scorm.test.cjs && python3 scripts/check_scorm_zip.py"
+  }
+}
