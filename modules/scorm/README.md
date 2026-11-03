@@ -1,3 +1,5 @@
+> Актуальный контракт — v4 / приложение v0.6 в конце файла. Исторические описания ниже сохраняются для совместимости.
+
 # SCORM module v2.0.0 — публичный контракт
 
 При изменении интерфейса читать этот файл и assets/js/author/model.js.
@@ -137,3 +139,26 @@ https://scorm.com/wp-content/assets/cookbook/CookingUpASCORM_v1_2.pdf
 - ScenaPlayer.markup/css/run едины в экспорте и предпросмотре. В learner UI нет авторских названий
   шагов/файлов. Задание — синий блок, ошибки над экраном, навигация справа, итог — название курса.
 - Дополнительная проверка: node tests/fields.test.cjs.
+
+## Контракт v4 / приложение v0.6 (актуальное дополнение)
+- Новые шаги: intro (body,next; логотип и название из курса), slide (background,next).
+- course.theme:{color,titleColor,textColor,font,logo}. font — системное семейство из списка
+  Arial/Verdana/Georgia/Tahoma/Trebuchet MS; цвета #RRGGBB, logo — файл media/ в assets.
+- message.template:'instruction'|'cards'|'dialog'; body — обычный текст с переносами строк.
+- taskTitle — отдельное видимое название задания, s.title остаётся авторским названием.
+- Поля: kind:'text'|'select'|'checkbox'|'radio'. Списки/radio: choices с новой строки,
+  expected и optional initial. Checkbox: expectedChecked (по умолчанию true), initialChecked.
+- Текстовые rule: exact/any/url/match/oneOf/range/email/phone. oneOf использует accepted
+  с новой строки, range — min/max включительно; trim:false сохраняет пробелы. email/phone
+  проверяют только формат, не существование адреса или номера.
+- f.autofill:{stepId,fieldId}: начальное значение из предыдущего обязательного шага.
+  Это отдельно от match. До8 источников, значения до64 символов. Пароль-источник запрещён.
+  В состоянии v4 values содержит открытые учебные значения для продолжения; refs по-прежнему
+  содержит только отпечатки сравнения. Проверяется объём данных перед переходом.
+- Краткая progress — битовая маска страниц в hex. Состояние v4 принимает v1/v2/v3.
+  Полоса использует пройденные страницы и кратчайший оставшийся маршрут; это не процент оценки.
+- choice.showMode:'end'|'time', showAt — секунда паузы исходного video (video.next ведёт в choice).
+  option.rect:{x,y,w,h} — положение кнопки в процентах, color/textColor/fontSize/rounded — оформление.
+  Полноэкранным становится постоянный контейнер screen, не нативный video; iframe должен разрешать
+  fullscreen. На браузере без API используется обычный размер. Телефоны проверены только эмуляцией ширины.
+- Новые тесты: node tests/v6.test.cjs, node tests/areas.test.cjs.
