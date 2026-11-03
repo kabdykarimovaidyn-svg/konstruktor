@@ -12,7 +12,7 @@ function validate(course){
  const links=s=>s.options?.filter(o=>!o.wrong).map(o=>o.next).filter(Boolean)|| (s.next?[s.next]:[]);
  for(const s of course.steps){
   if(s.type==='form'&&(!Array.isArray(s.fields)||!s.fields.length))throw Error('Добавьте поле ввода: '+s.id);
-  for(const f of s.fields||[])if(f.rule!=='any'&&!String(f.expected||'').trim())throw Error('Укажите правильное значение поля.');
+  for(const f of s.fields||[])if(!['any','match'].includes(f.rule)&&!String(f.expected||'').trim())throw Error('Укажите правильное значение поля.');
   if(s.type==='return'&&!course.steps.some(t=>t.id===s.next&&t.type==='choice'))throw Error('Возврат должен вести к выбору.');
   if(s.video&&!course.steps.some(t=>t.id===s.video&&t.type==='video'&&t.src))throw Error('Для последнего кадра нужно видео.');
   if(s.type==='input'&&(typeof s.expected!=='string'||!s.expected.trim()))throw Error('Нужно правильное значение поля.');
@@ -30,6 +30,7 @@ function validate(course){
  const canEnd=new Set(course.steps.filter(s=>s.type==='end').map(s=>s.id));let changed=true;
  while(changed){changed=false;for(const s of course.steps)if(!canEnd.has(s.id)&&links(s).some(id=>canEnd.has(id))){canEnd.add(s.id);changed=true;}}
  if([...reachable].some(id=>!canEnd.has(id)))throw Error('В сценарии есть ветка без пути к завершению.');
+ const fields=root.ScenaFields||(typeof require==='function'?require('./fields.js'):null);if(!fields)throw Error('Модуль проверки полей не загружен.');const issues=fields.issues(course);if(issues.length)throw Error(issues[0].message);
  return true;
 }
 function runtime(win){
@@ -43,10 +44,10 @@ function runtime(win){
  const initialStatus=get('cmi.core.lesson_status');
  if(active&&!['completed','passed','failed'].includes(initialStatus)){set('cmi.core.lesson_status','incomplete');call('LMSCommit','');}
  function time(){const total=Math.min(35999999,Math.floor((Date.now()-started)/10));return String(Math.floor(total/360000)).padStart(4,'0')+':'+String(Math.floor(total/6000)%60).padStart(2,'0')+':'+String(Math.floor(total/100)%60).padStart(2,'0')+'.'+String(total%100).padStart(2,'0');}
- return {get,save(state){if(finished)return false;const data=JSON.stringify(state);if(data.length>4096)throw Error('Слишком много данных прогресса.');if(!active)return true;
+ return {get,save(state){if(finished)return true;const data=JSON.stringify(state);if(data.length>4096)throw Error('Слишком много данных прогресса.');if(!active)return !api;
  const results=[set('cmi.suspend_data',data),set('cmi.core.lesson_location',state.step),set('cmi.core.session_time',time()),set('cmi.core.exit',state.done?'':'suspend')];
  if(state.done){results.push(set('cmi.core.score.min',0),set('cmi.core.score.max',100),set('cmi.core.score.raw',state.score),set('cmi.core.lesson_status','completed'));}
- results.push(String(call('LMSCommit',''))==='true');return results.every(Boolean);},finish(state){if(finished)return;this.save(state);if(active)call('LMSFinish','');finished=true;active=false;},get connected(){return active;},get warnings(){return warnings.slice();},initialStatus};
+ results.push(String(call('LMSCommit',''))==='true');return results.every(Boolean);},finish(state){if(finished)return true;if(!this.save(state))return false;if(active&&String(call('LMSFinish',''))!=='true')return false;finished=true;active=false;return true;},get connected(){return active;},get warnings(){return warnings.slice();},initialStatus};
 }
 function crc32(bytes){let c=0xffffffff;for(const b of bytes){c^=b;for(let i=0;i<8;i++)c=(c>>>1)^((c&1)?0xedb88320:0);}return (c^0xffffffff)>>>0;}
 function concat(parts){const length=parts.reduce((n,p)=>n+p.length,0);if(length>0xffffffff)throw Error('Пакет слишком большой для ZIP32.');const out=new Uint8Array(length);let at=0;for(const p of parts){out.set(p,at);at+=p.length;}return out;}
@@ -61,7 +62,7 @@ async function build(course,assets={}){
  for(const path of allowed){if(!/^media\/[a-zA-Z0-9_.-]+$/.test(path))throw Error('Небезопасный путь: '+path);const input=assets[path];const bytes=input instanceof Uint8Array?input:input instanceof ArrayBuffer?new Uint8Array(input):typeof input?.arrayBuffer==='function'?new Uint8Array(await input.arrayBuffer()):null;if(!bytes||!bytes.length)throw Error('Пустой или неподдерживаемый файл: '+path);files.push([path,bytes]);}
  for(const s of clone.steps)for(const key of ['src','background'])if(s[key]&&!allowed.has(s[key]))throw Error('Медиафайл не включён в пакет: '+s[key]);
  const data=JSON.stringify(clone).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
- const html='<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escapeXML(course.title)+'</title><link rel="stylesheet" href="player.css"><header><h1 id="title"></h1><span>Учебный курс</span></header><main><h2 id="step"></h2><p id="task"></p><section id="screen"></section><div id="feedback" role="status" aria-live="polite"></div></main><footer><span id="lms" role="status"></span><span id="errors"></span><button id="save">Сохранить прогресс</button></footer><script src="course.js"></script><script src="player.js"></script></html>';
+ const html='<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escapeXML(course.title)+'</title><link rel="stylesheet" href="player.css">'+root.ScenaPlayer.markup+'<script src="course.js"></script><script src="player.js"></script></html>';
  files.push(['index.html',html],['player.css',css],['course.js','window.SCENA_COURSE='+data+';'],['player.js','('+player.toString()+')(window.SCENA_COURSE,'+runtime.toString()+');']);
  const paths=['index.html','player.css','course.js','player.js',...allowed];
  const manifest='<?xml version="1.0" encoding="UTF-8"?><manifest identifier="'+escapeXML(course.id)+'" version="1.0" xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2" xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"><metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata><organizations default="ORG"><organization identifier="ORG"><title>'+escapeXML(course.title)+'</title><item identifier="ITEM" identifierref="SCO"><title>'+escapeXML(course.title)+'</title></item></organization></organizations><resources><resource identifier="SCO" type="webcontent" adlcp:scormtype="sco" href="index.html">'+paths.map(p=>'<file href="'+escapeXML(p)+'"/>').join('')+'</resource></resources></manifest>';
@@ -71,7 +72,7 @@ function preview(course,assets={}){
  validate(course);const clone=JSON.parse(JSON.stringify(course));clone.preview=true;
  for(const step of clone.steps)for(const key of ['src','background'])if(step[key]){if(!assets[step[key]])throw Error('Не найден медиафайл: '+step[key]);step[key]=assets[step[key]];}
  const json=JSON.stringify(clone).replace(/</g,'\\u003c');
- return '<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Предпросмотр</title><style>'+root.ScenaPlayer.css+'</style><header><h1 id="title"></h1><span>Предпросмотр курса</span></header><main><h2 id="step"></h2><p id="task"></p><section id="screen"></section><div id="feedback" role="status" aria-live="polite"></div></main><footer><span id="lms"></span><span id="errors"></span><button id="save">Сохранить</button></footer><script>('+root.ScenaPlayer.run.toString()+')('+json+','+runtime.toString()+');</script></html>';
+ return '<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Предпросмотр</title><style>'+root.ScenaPlayer.css+'</style>'+root.ScenaPlayer.markup+'<script>('+root.ScenaPlayer.run.toString()+')('+json+','+runtime.toString()+');</script></html>';
 }
-root.ScenaSCORM=Object.freeze({version:'2.0.0',validate,build,runtime,preview});
+root.ScenaSCORM=Object.freeze({version:'3.0.0',validate,build,runtime,preview});
 })(typeof window!=='undefined'?window:globalThis);
