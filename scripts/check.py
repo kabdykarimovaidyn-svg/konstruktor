@@ -9,7 +9,7 @@ if not node:
 if not node: raise SystemExit('Для проверки синтаксиса нужен Node.js.')
 html = (ROOT / 'index.html').read_text()
 for path in re.findall(r'(?:src|href)="((?:assets|modules)/[^"]+)"', html):
-    assert (ROOT / path).is_file(), path
+    assert (ROOT / path.split('?',1)[0]).is_file(), path
 for path in sorted(list((ROOT / 'assets/js').rglob('*.js')) + list((ROOT / 'modules').rglob('*.js'))):
     subprocess.run([node, '--check', str(path)], check=True)
 # Проверяет также HTML/JS-границы в исходной разметке.

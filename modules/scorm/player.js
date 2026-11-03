@@ -21,7 +21,7 @@ function run(course,runtimeFactory){
    // Return nodes are explicit in the graph; target must be a choice, so no automatic loop.
    go(s.next);return;
   }
-  if(s.type==='end'){state.done=true;state.score=Math.max(0,100-state.errors*(Number.isFinite(course.penalty)?course.penalty:10));el('h2','Курс завершён',area);el('p',s.body||'Все обязательные действия выполнены.',area);el('p','Ошибок: '+state.errors+' · Результат: '+state.score+' из 100',area);save();button('Сохранить результат',save,area);return;}
+  if(s.type==='end'){state.done=true;state.score=Math.max(0,100-state.errors*(Number.isFinite(course.penalty)?course.penalty:10));el('h2',course.preview&&course.previewScope==='step'?'Проверка шага завершена':'Курс завершён',area);el('p',s.body||'Все обязательные действия выполнены.',area);el('p','Ошибок: '+state.errors+' · Результат: '+state.score+' из 100',area);save();button('Сохранить результат',save,area);return;}
   const stage=el('div',undefined,area,'stage');let controls=stage;
   if(s.background){const img=el('img',undefined,stage);img.src=s.background;img.alt=s.title||'Учебный экран';img.onerror=()=>{$('feedback').textContent='Не удалось загрузить скриншот.';};stage.classList.add('screenshot');}
   else{controls=el('div',undefined,stage,'controls');}
