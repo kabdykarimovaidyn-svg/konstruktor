@@ -13,3 +13,5 @@
 .projects-mode .top-actions{display:flex}.projects-mode .top-actions>button:not(#open-converter){display:none}
 .canvas-type-choice>label:first-child,.canvas-type-choice>[data-area-add]{display:none}.static-slide{display:block;width:100%;border:1px solid #d7e0ea;border-radius:4px}
 .canvas-surface .zone{min-height:0;min-width:0}.canvas-surface.drawing,.canvas-surface.drawing .zone{cursor:crosshair}
+/* Preview uses the iframe height as the actual course viewport. */
+#preview-dialog{height:min(94dvh,900px);max-height:94dvh;overflow:hidden}#preview-dialog[open]{display:flex;flex-direction:column}#preview-dialog>.dialog-bar{padding:8px 14px;flex-shrink:0;min-height:44px;font-size:12px}#preview-dialog>.dialog-bar button{padding:5px 12px;min-height:29px;font-size:11px}#preview-frame{display:block;flex:1;min-height:0;height:auto;width:100%}
