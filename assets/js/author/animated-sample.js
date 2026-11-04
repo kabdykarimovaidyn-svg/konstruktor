@@ -1,0 +1,1 @@
+(function(root){'use strict';root.ScenaSamples=root.ScenaSamples||{};root.ScenaSamples.createAnimated=async()=>{const p=await root.ScenaStorage.read(new Blob([JSON.stringify(root.ScenaAnimatedData)],{type:'application/json'}));p.id=root.ScenaModel.uid('story');p.createdAt=Date.now();return p;};})(window);
