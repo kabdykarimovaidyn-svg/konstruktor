@@ -37,7 +37,18 @@
 <dialog id="export-dialog"><div class="dialog-bar"><strong>Экспорт SCORM 1.2</strong><button id="close-export">Закрыть</button></div><div class="dialog-body"><div id="export-results"></div><p class="muted">Пакет содержит только файлы, которые используются в курсе. Проект редактирования скачивается отдельно.</p><button id="build-scorm" class="primary">Собрать и скачать ZIP</button><p id="export-status" role="status"></p></div></dialog>
 
 <dialog id="create-dialog"><form id="create-form"><div class="dialog-bar"><strong>Создать курс</strong><button type="button" data-close="create-dialog" aria-label="Закрыть окно создания курса">Закрыть</button></div><div class="dialog-body"><label>Название курса<input id="create-title" required maxlength="140" placeholder="Например, Регистрация в системе"></label><fieldset class="create-choices"><legend>С чего начать?</legend><label><input type="radio" name="create-kind" value="animation"><span><strong>Интерактивная видеоистория</strong><small>Недовольный клиент: две развилки, последствия решений и повтор выбора.</small></span></label><label><input type="radio" name="create-kind" value="gmail"><span><strong>Тренажёр регистрации Gmail</strong><small>Полный учебный курс: красивые экраны, проверки, пароль и автозаполнение.</small></span></label><label><input type="radio" name="create-kind" value="blank" checked><span><strong>Пустой курс</strong><small>Добавьте собственные видео и скриншоты.</small></span></label><label><input type="radio" name="create-kind" value="example"><span><strong>Учебный пример</strong><small>Готовый курс, чтобы разобраться с ветками и тренажёром. Сохраняется как отдельный проект.</small></span></label><label><input type="radio" name="create-kind" value="features"><span><strong>Пример новых элементов</strong><small>Autofill, списки, галочки, переключатели и проверки текста.</small></span></label></fieldset><button class="primary full" id="create-submit" type="submit">Создать курс</button><p id="create-status" class="small" role="status"></p></div></form></dialog>
-<dialog id="add-dialog"><div class="dialog-bar"><strong>Что добавить в курс?</strong><button data-close="add-dialog">Закрыть</button></div><div class="material-choices"><button data-add-material="template-intro"><b>Начальная страница</b><span>Название курса, логотип и кнопка «Начать».</span></button><button data-add-material="template-instruction"><b>Шаблон инструкции</b><span>Пошаговое объяснение.</span></button><button data-add-material="template-cards"><b>Шаблон карточек</b><span>Ключевые пункты отдельными карточками.</span></button><button data-add-material="template-dialog"><b>Шаблон диалога</b><span>Реплики клиента и сотрудника.</span></button><button data-add-material="screens"><b>▧ Скриншоты программы</b><span>Выберите один или несколько файлов. Каждый станет отдельным шагом тренажёра.</span></button><button data-add-material="videos"><b>▷ Видеоролики</b><span>Добавьте одно или несколько видео в нужном порядке.</span></button><button data-add-material="choice"><b>Вопрос с ответами</b><span>Сотрудник выбирает вариант. Вы задаёте продолжение для каждого ответа.</span></button><button data-add-material="message"><b>Текст и объяснение</b><span>Инструкция, пояснение или разбор последствий решения.</span></button><button data-add-material="return"><b>Повторить вопрос</b><span>Вернуть сотрудника к вопросу после неудачной ветки.</span></button><button data-add-material="end"><b>Завершение курса</b><span>Итоговый экран и передача результата в систему обучения.</span></button></div></dialog>
+<dialog id="capture-dialog">
+<div class="dialog-bar"><strong>Снять экран по ссылке</strong><button data-close="capture-dialog">Закрыть</button></div>
+<div class="dialog-body">
+<form id="capture-url-form"><label>Ссылка на сайт<input id="capture-url" type="url" required placeholder="https://example.com"></label><button type="submit">Открыть в новой вкладке</button></form>
+<p>Выберите вкладку сайта в окне браузера. Переключайтесь на неё, чтобы открыть нужный экран, затем возвращайтесь сюда и снимайте кадр.</p>
+<video id="capture-preview" autoplay muted playsinline hidden style="width:100%;max-height:40vh;object-fit:contain"></video>
+<p id="capture-status" role="status"></p>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button id="capture-start">Выбрать вкладку</button><button id="capture-shot" disabled>Снять кадр</button><button id="capture-review" class="primary" disabled>Проверить снимки</button>
+</div>
+</div></dialog>
+<dialog id="add-dialog"><div class="dialog-bar"><strong>Что добавить в курс?</strong><button data-close="add-dialog">Закрыть</button></div><div class="material-choices"><button data-add-material="template-intro"><b>Начальная страница</b><span>Название курса, логотип и кнопка «Начать».</span></button><button data-add-material="template-instruction"><b>Шаблон инструкции</b><span>Пошаговое объяснение.</span></button><button data-add-material="template-cards"><b>Шаблон карточек</b><span>Ключевые пункты отдельными карточками.</span></button><button data-add-material="template-dialog"><b>Шаблон диалога</b><span>Реплики клиента и сотрудника.</span></button><button data-add-material="screens"><b>▧ Скриншоты программы</b><span>Выберите один или несколько файлов. Каждый станет отдельным шагом тренажёра.</span></button><button data-add-material="capture"><b>Снять экран по ссылке</b><span>Откройте сайт в другой вкладке и добавьте серию снимков.</span></button><button data-add-material="videos"><b>▷ Видеоролики</b><span>Добавьте одно или несколько видео в нужном порядке.</span></button><button data-add-material="choice"><b>Вопрос с ответами</b><span>Сотрудник выбирает вариант. Вы задаёте продолжение для каждого ответа.</span></button><button data-add-material="message"><b>Текст и объяснение</b><span>Инструкция, пояснение или разбор последствий решения.</span></button><button data-add-material="return"><b>Повторить вопрос</b><span>Вернуть сотрудника к вопросу после неудачной ветки.</span></button><button data-add-material="end"><b>Завершение курса</b><span>Итоговый экран и передача результата в систему обучения.</span></button></div></dialog>
 <dialog id="batch-dialog"><div class="dialog-bar"><strong id="batch-title">Добавить материалы</strong><button id="cancel-batch">Отмена</button></div><div class="dialog-body"><p>Каждый файл станет отдельным шагом. Проверьте порядок — позже его можно изменить в списке слева.</p><button id="sort-batch">Сортировать по имени</button><div id="batch-list"></div><button id="confirm-batch" class="primary full">Добавить шаги</button></div></dialog>
 <dialog id="confirm-dialog"><div class="dialog-bar"><strong id="confirm-title"></strong></div><div class="dialog-body"><p id="confirm-message"></p><div class="confirm-actions"><button id="confirm-no">Отмена</button><button id="confirm-yes" class="primary">Продолжить</button></div></div></dialog>
 <dialog id="rename-dialog"><form id="rename-form"><div class="dialog-bar"><strong>Название проекта</strong><button type="button" data-close="rename-dialog">Закрыть</button></div><div class="dialog-body"><label>Новое название<input id="rename-title" required maxlength="140"></label><button class="primary" type="submit">Сохранить название</button></div></form></dialog>
@@ -550,6 +561,133 @@ function render(){if(!app||!$('theme-color'))return;const p=app.project(),t=p.th
 function init(adapter){app=adapter;for(const [id,key] of [['theme-color','color'],['theme-font','font'],['theme-title-color','titleColor'],['theme-text-color','textColor']])$(id).onchange=()=>{app.mutate(()=>{const p=app.project();p.theme={...p.theme,[key]:$(id).value};});app.render();};$('choose-logo').onclick=()=>$('logo-input').click();$('remove-logo').onclick=()=>{app.mutate(()=>delete app.project().theme.logo);app.render();};$('logo-input').onchange=async()=>{const f=$('logo-input').files[0];if(!f)return;try{if(!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size>3*1024*1024)throw Error('Логотип: PNG, JPG или WebP, до 3 МБ.');ScenaStorage.checkSize(app.project(),f.size);const path='media/'+ScenaModel.uid('logo')+'.'+f.type.split('/')[1];app.mutate(()=>{const p=app.project();p.assets[path]={name:f.name,blob:f};p.theme={...p.theme,logo:path};});app.render();}catch(e){app.notice(e.message);}};ScenaConverter.init(app);}
 root.ScenaCourseUI={init,render};})(window);
 </script><script>
+(function(root){
+'use strict';
+
+const byId=id=>document.getElementById(id);
+const dialog=byId('capture-dialog');
+const preview=byId('capture-preview');
+const start=byId('capture-start');
+const shot=byId('capture-shot');
+const review=byId('capture-review');
+const status=byId('capture-status');
+let session;
+
+function stop(current){
+  current.stream?.getTracks().forEach(track=>track.stop());
+  current.stream=null;
+  preview.srcObject=null;
+  preview.hidden=true;
+  shot.disabled=true;
+}
+
+function update(current){
+  start.disabled=current.busy||Boolean(current.stream)||!navigator.mediaDevices?.getDisplayMedia;
+  shot.disabled=current.busy||!current.stream||!preview.videoWidth;
+  review.disabled=current.busy||!current.files.length;
+  review.textContent='Проверить снимки ('+current.files.length+')';
+}
+
+byId('capture-url-form').onsubmit=event=>{
+  event.preventDefault();
+  const url=new URL(byId('capture-url').value);
+  if(!['https:','http:'].includes(url.protocol)){
+    status.textContent='Введите ссылку, начинающуюся с https:// или http://.';
+    return;
+  }
+  window.open(url.href,'_blank','noopener,noreferrer');
+  status.textContent='Вернитесь сюда и нажмите «Выбрать вкладку».';
+};
+
+start.onclick=async()=>{
+  const current=session;
+  current.busy=true;
+  update(current);
+  try{
+    const stream=await navigator.mediaDevices.getDisplayMedia({
+      video:{displaySurface:'browser'},audio:false,selfBrowserSurface:'exclude'
+    });
+    if(session!==current||!dialog.open){
+      stream.getTracks().forEach(track=>track.stop());
+      return;
+    }
+    current.stream=stream;
+    preview.srcObject=stream;
+    preview.hidden=false;
+    stream.getVideoTracks()[0].addEventListener('ended',()=>{
+      if(session!==current||current.stream!==stream)return;
+      stop(current);
+      status.textContent='Захват остановлен. Снимки доступны для проверки.';
+      update(current);
+    });
+    status.textContent='Откройте нужный экран сайта и нажмите «Снять кадр».';
+  }catch(error){
+    if(session===current)status.textContent=error.name==='NotAllowedError'
+      ?'Доступ к вкладке не предоставлен. Можно выбрать её ещё раз.'
+      :'Не удалось начать захват вкладки. Проверьте разрешения браузера.';
+  }finally{
+    current.busy=false;
+    if(session===current)update(current);
+  }
+};
+
+preview.onloadeddata=()=>{if(session)update(session);};
+
+shot.onclick=async()=>{
+  const current=session;
+  if(!current.stream||!preview.videoWidth||preview.readyState<2)return;
+  current.busy=true;
+  update(current);
+  try{
+    const canvas=document.createElement('canvas');
+    canvas.width=preview.videoWidth;
+    canvas.height=preview.videoHeight;
+    canvas.getContext('2d').drawImage(preview,0,0);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+    if(session!==current||!dialog.open)return;
+    if(!blob)throw Error('Не удалось снять кадр.');
+    current.files.push(new File([blob],'Снимок '+(current.files.length+1)+'.png',{type:'image/png'}));
+    status.textContent='Снимок добавлен. Можно снять следующий экран.';
+  }catch(error){
+    if(session===current)status.textContent=error.message;
+  }finally{
+    current.busy=false;
+    if(session===current)update(current);
+  }
+};
+
+review.onclick=async()=>{
+  const current=session;
+  current.busy=true;
+  update(current);
+  try{
+    await current.onReview(current.files);
+    dialog.close();
+  }catch(error){
+    status.textContent=error.message;
+  }finally{
+    current.busy=false;
+    if(session===current)update(current);
+  }
+};
+
+dialog.addEventListener('close',()=>{
+  if(dialog.open||!session)return;
+  stop(session);
+  session=null;
+});
+
+root.ScenaCapture={open(onReview){
+  if(session)stop(session);
+  session={onReview,files:[],stream:null,busy:false};
+  byId('capture-url').value='';
+  status.textContent=navigator.mediaDevices?.getDisplayMedia?''
+    :'Захват вкладки недоступен. Откройте конструктор по HTTPS в браузере с поддержкой захвата экрана.';
+  update(session);
+  dialog.showModal();
+}};
+})(window);
+</script><script>
 /* Author application: coordinates modules; SCORM internals stay isolated. */
 (function(){
 'use strict';
@@ -643,7 +781,10 @@ $('inspector-content').addEventListener('change',e=>{if(e.target.hasAttribute('d
 $('inspector-content').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!node())return;const d=b.dataset,n=node();if(d.upload){attach(d.upload);return;}if('setStart'in d){mutate(()=>p.start=n.id);render();return;}if('delete'in d){removeStep(n.id);return;}if('duplicate'in d){duplicateStep(n.id);return;}if('addOption'in d){mutate(()=>n.options.push({id:M.uid('opt'),label:'Новый вариант',next:''}));render();}if('removeOption'in d){mutate(()=>n.options.splice(Number(d.removeOption),1));render();}if('addField'in d){mutate(()=>n.fields.push(M.field()));render();}if('removeField'in d){mutate(()=>n.fields.splice(Number(d.removeField),1));render();}if('drawClick'in d)setDrawing({kind:'click'});if('drawField'in d)setDrawing({kind:'field',index:Number(d.drawField)});if('drawSubmit'in d)setDrawing({kind:'submit'});if('clearSubmit'in d){mutate(()=>delete n.submitRect);render();}if('drawOption'in d)setDrawing({kind:'option',index:Number(d.drawOption)});});
 $('editor-content').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;if(d.editorUpload){attach(d.editorUpload);return;}if('cancelTool'in d){drawing=null;renderEditor();return;}if('zoneField'in d){$('field-block-'+d.zoneField)?.scrollIntoView({block:'nearest'});return;}if('drawOption'in d){setDrawing({kind:'option',index:Number(d.drawOption)});return;}if(d.tool){if(d.tool==='new-field')setDrawing({kind:'new-field'});else if(d.tool==='option')setDrawing({kind:'option',index:0});else setDrawing({kind:d.tool});}});
 $('add-group').onclick=()=>{const g={id:M.uid('section'),title:'Раздел '+(p.groups.length+1)};mutate(()=>{p.groups.push(g);M.sequence(p);});selectedGroup=g.id;render();notice('Раздел добавлен. Нажмите «Добавить сюда» под его названием.');};
-$('add-material').onclick=()=>openAdd();$('add-dialog').onclick=e=>{const b=e.target.closest('[data-add-material]');if(!b)return;$('add-dialog').close();if(['screens','videos'].includes(b.dataset.addMaterial))chooseMaterials(b.dataset.addMaterial);else if(b.dataset.addMaterial.startsWith('template-'))addTemplate(b.dataset.addMaterial.slice(9));else addNode(b.dataset.addMaterial);};
+$('add-material').onclick=()=>openAdd();$('add-dialog').onclick=e=>{const b=e.target.closest('[data-add-material]');if(!b)return;$('add-dialog').close();if(b.dataset.addMaterial==='capture'){
+ const target={mode:'screens',id:insertionAnchor(),group:selectedGroup};
+ ScenaCapture.open(files=>{validateFiles(files);uploadTarget=target;return upload(files);});
+}else if(['screens','videos'].includes(b.dataset.addMaterial))chooseMaterials(b.dataset.addMaterial);else if(b.dataset.addMaterial.startsWith('template-'))addTemplate(b.dataset.addMaterial.slice(9));else addNode(b.dataset.addMaterial);};
 let titleEditing=false;$('course-title').oninput=()=>{if(!titleEditing){checkpoint();titleEditing=true;}p.title=$('course-title').value;const heading=$('editor-content').querySelector('.author-completion h2');if(heading)heading.textContent=p.title;changed();};$('course-title').onblur=()=>{titleEditing=false;if(!p.title.trim()){p.title='Без названия';$('course-title').value=p.title;changed();}};document.querySelector('.tabs').onclick=e=>{if(e.target.dataset.tab)setTab(e.target.dataset.tab);};
 $('asset-input').onchange=()=>upload([...$('asset-input').files]);$('library-upload').onclick=()=>{uploadTarget={mode:'library'};$('asset-input').multiple=true;$('asset-input').accept='video/mp4,video/webm,image/png,image/jpeg,image/webp';$('asset-input').value='';$('asset-input').click();};
 $('batch-list').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;if('batchRemove'in d)pendingBatch.splice(Number(d.batchRemove),1);else{const i=Number(d.batchUp??d.batchDown),j=i+('batchUp'in d?-1:1);if(j>=0&&j<pendingBatch.length)[pendingBatch[i],pendingBatch[j]]=[pendingBatch[j],pendingBatch[i]];}batchList();};$('sort-batch').onclick=()=>{pendingBatch.sort((a,b)=>a.name.localeCompare(b.name,'ru',{numeric:true}));batchList();};$('confirm-batch').onclick=addBatch;$('cancel-batch').onclick=()=>$('batch-dialog').close();$('batch-dialog').addEventListener('close',()=>clearBatch());
