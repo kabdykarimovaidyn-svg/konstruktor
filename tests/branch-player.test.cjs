@@ -4,3 +4,21 @@ const nodes=Object.fromEntries(['title','step','task','screen','feedback','lms',
 const course={id:'branches',title:'Branches',start:'intro',steps:[{id:'intro',type:'video',src:'media/i.mp4',next:'choose'},{id:'choose',type:'choice',video:'intro',options:[{label:'Bad',next:'bad'},{label:'Good',next:'good'}]},{id:'bad',type:'video',src:'media/b.mp4',next:'explain'},{id:'explain',type:'message',body:'Reason',next:'retry'},{id:'retry',type:'return',next:'choose',penalty:true},{id:'good',type:'video',src:'media/g.mp4',next:'form'},{id:'form',type:'form',fields:[{id:'a',label:'URL',rule:'url',expected:'gmail.com'},{id:'b',label:'Name',rule:'any'}],next:'end'},{id:'end',type:'end'}]};let saved;const bridge={connected:true,warnings:[],get:()=>'',save:s=>{saved={...s};return true;},finish(){}};const player=window.ScenaPlayer.run(course,()=>bridge),all=t=>nodes.screen.all().filter(e=>e.tagName===t.toUpperCase()),click=t=>all('button').find(e=>e.textContent===t).onclick();const intro=all('video')[0];assert.equal(player.getState().step,'intro');intro.onended();assert.equal(player.getState().step,'choose');click('Bad');all('video')[0].onended();assert.equal(player.getState().errors,0);click('Далее');assert.equal(player.getState().step,'choose');assert.equal(player.getState().errors,1);assert.equal(intro.playCount,1);click('Good');all('video')[0].onended();const form=all('form')[0],inputs=all('input');inputs[0].value='gmai.com';inputs[1].value='';form.onsubmit({preventDefault(){}});assert.equal(player.getState().step,'form');assert.equal(player.getState().errors,2);inputs[0].value='HTTPS://GMAIL.COM/';inputs[1].value='Practice';form.onsubmit({preventDefault(){}});assert.equal(player.getState().done,true);assert.equal(saved.score,80);
 const bridge2={...bridge,get:()=>JSON.stringify({v:2,course:'branches',step:'intro',errors:2,score:0,done:false,time:6})};const reopened=window.ScenaPlayer.run(course,()=>bridge2);const video=all('video')[0];video.onloadedmetadata();assert.equal(video.currentTime,6);assert.equal(reopened.getState().errors,2);
 console.log('Проигрыватель v2: отложенные последствия, возврат без повтора, несколько полей и восстановление видео проверены.');
+const screens={id:'screens',title:'Screens',start:'main',steps:[
+ {id:'main',type:'form',background:'main.png',fields:[{id:'phone',label:'Phone',rule:'any',rect:{x:5,y:10,w:30,h:10}}],next:'finish',
+  jumps:[{id:'orders',label:'Orders',next:'orders',rect:{x:50,y:5,w:20,h:10}}]},
+ {id:'orders',type:'click',background:'orders.png',jumps:[{id:'back',label:'Back',next:'main',rect:{x:5,y:5,w:15,h:10}}]},
+ {id:'finish',type:'end'}
+]};
+require('../modules/scorm/scorm.js');
+assert.equal(ScenaSCORM.validate(screens),true);
+const screenPlayer=window.ScenaPlayer.run(screens,()=>bridge);
+all('input')[0].value='+7 701';
+click('Orders');
+assert.equal(screenPlayer.getState().step,'orders');
+click('Back');
+assert.equal(screenPlayer.getState().step,'main');
+assert.equal(all('input')[0].value,'+7 701');
+assert.equal(screenPlayer.getState().errors,0);
+assert.ok(!JSON.stringify(saved).includes('+7 701'));
+console.log('Переход между скриншотами сохраняет незавершённый ввод в сеансе.');
