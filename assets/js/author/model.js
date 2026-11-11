@@ -41,7 +41,7 @@ function inspect(p){const problems=[],warnings=[],ids=new Set(p.steps.map(s=>s.i
  return {problems,warnings};
 }
 function link(p,from,key,to){const a=p.steps.find(n=>n.id===from),b=p.steps.find(n=>n.id===to);if(!a||!b||a.type==='end')throw Error('Выберите существующие шаги.');if(a.type==='return'&&b.type!=='choice')throw Error('Возврат должен вести к выбору.');const jump=a.jumps?.find(j=>j.id===key);if(jump){jump.next=to;p.settings.flow='branching';}else if(a.options){p.settings.flow='branching';const option=a.options.find(o=>o.id===key);if(!option)throw Error('Вариант удалён.');option.next=to;}else{p.settings.flow='branching';a.next=to;}}
-function remove(p,id){p.steps=p.steps.filter(n=>n.id!==id);delete p.layout[id];for(const n of p.steps){if(n.next===id)n.next='';if(n.video===id)n.video='';[...(n.options||[]),...(n.jumps||[])].forEach(o=>{if(o.next===id)o.next='';});}if(p.start===id)p.start=p.steps[0]?.id||'';sequence(p);}
+function remove(p,id){const removed=p.steps.find(n=>n.id===id);if(removed?.template==='guide'&&removed.next&&removed.next!==id){for(const n of p.steps){if(n.next===id)n.next=removed.next;for(const edge of [...(n.options||[]),...(n.jumps||[])])if(edge.next===id)edge.next=removed.next;}if(p.start===id)p.start=removed.next;}p.steps=p.steps.filter(n=>n.id!==id);delete p.layout[id];for(const n of p.steps){if(n.next===id)n.next='';if(n.video===id)n.video='';[...(n.options||[]),...(n.jumps||[])].forEach(o=>{if(o.next===id)o.next='';});}if(p.start===id)p.start=p.steps[0]?.id||'';sequence(p);}
 
 function ordered(p){return p.groups.flatMap(g=>p.steps.filter(n=>n.group===g.id));}
 function sequence(p){if(p.settings.flow!=='sequence')return;const all=ordered(p),ends=all.filter(n=>n.type==='end');ends.forEach(n=>n.group=p.groups.at(-1).id);const steps=[...all.filter(n=>n.type!=='end'),...ends];p.steps=steps;p.start=steps[0]?.id||'';steps.forEach((n,i)=>{const next=steps[i+1]?.id||'';if(n.type==='end')return;if(n.options)n.options.forEach(o=>{if(!o.wrong)o.next=next;});else n.next=next;});}
@@ -54,8 +54,35 @@ function moveGroup(p,id,direction){const at=p.groups.findIndex(g=>g.id===id),to=
 function removeGroup(p,id){if(p.groups.length<=1)throw Error('В курсе должен оставаться хотя бы один раздел.');const remaining=p.groups.filter(g=>g.id!==id);if(p.settings.flow==='sequence')p.steps.filter(n=>n.group===id&&n.type==='end').forEach(n=>n.group=remaining.at(-1).id);const ids=p.steps.filter(n=>n.group===id).map(n=>n.id);p.groups=remaining;ids.forEach(id=>remove(p,id));sequence(p);}
 
 function cleanImport(raw){if(!raw||raw.schema!==2||!Array.isArray(raw.steps)||raw.steps.length>500||!Array.isArray(raw.groups)||!raw.groups.length||typeof raw.id!=='string'||!/^[-\w]{1,80}$/.test(raw.id))throw Error('Неподдерживаемый формат проекта.');const p=structuredClone(raw);if(p.groups.length>100||p.groups.some(g=>!g||typeof g.id!=='string'||!/^[-\w]{1,80}$/.test(g.id)||['__proto__','constructor','prototype'].includes(g.id)))throw Error('Некорректные сценарии.');p.groups.forEach(g=>g.title=String(g.title||'Сценарий'));p.title=String(p.title||'Курс');p.layout=p.layout||{};p.assets=p.assets||{};p.theme=p.theme||{};p.settings={mode:'learn',penalty:10,flow:'branching',...p.settings};if(!['learn','test'].includes(p.settings.mode)||!Number.isFinite(p.settings.penalty)||p.settings.penalty<0||p.settings.penalty>100)throw Error('Некорректные настройки курса.');const ids=new Set();for(const n of p.steps){if(!types[n.type]||!/^[-\w]{1,80}$/.test(n.id)||ids.has(n.id)||['__proto__','constructor','prototype'].includes(n.id))throw Error('Некорректные ID или типы шагов.');ids.add(n.id);if(n.jumps!==undefined&&(!Array.isArray(n.jumps)||n.jumps.length>30||n.jumps.some(j=>!j||typeof j.id!=='string'||typeof j.label!=='string'||typeof j.next!=='string')))throw Error('Некорректные области перехода.');n.title=String(n.title||types[n.type]);n.instruction=String(n.instruction||'');if(n.type==='choice'&&!n.options)n.options=[];if(n.type==='form'&&!n.fields)n.fields=[];if(!p.groups.some(g=>g.id===n.group))n.group=p.groups[0].id;if(n.options){if(!Array.isArray(n.options)||n.options.length>30)throw Error('Слишком много вариантов.');n.options.forEach(o=>o.id=o.id||uid('opt'));}if(n.fields&&(!Array.isArray(n.fields)||n.fields.length>30))throw Error('Слишком много полей.');const pos=p.layout[n.id];if(!pos||!Number.isFinite(pos.x)||!Number.isFinite(pos.y))p.layout[n.id]={x:60,y:60};else p.layout[n.id]={x:Math.max(0,Math.min(20000,pos.x)),y:Math.max(0,Math.min(30000,pos.y))};}return p;}
+function guideNode(group){
+ const n=node('message',group);
+ n.template='guide';
+ n.title='Как проходить тренажёр';
+ n.button='Понятно, начать';
+ n.body=[
+  'Прогресс|Синяя полоска сверху показывает, какую часть курса вы прошли.',
+  'Задание|Синяя плашка сверху объясняет, что нужно сделать на текущем экране.',
+  'Активная область|Синяя обводка и мягкая пульсация показывают, куда можно нажать.',
+  'Поле ввода|Нажмите на поле и введите данные по заданию.',
+  'Выпадающий список|Нажмите на стрелку вниз и выберите вариант. Длинный список можно прокрутить.',
+  'Галочка|Нажмите, чтобы поставить или снять отметку.',
+  'Сообщение об ошибке|Красная подсказка снизу объясняет, что исправить. Попробуйте ещё раз.',
+  'Счётчик ошибок|Справа сверху показано количество неверных действий.',
+  'Увеличить|Нажмите «Увеличить», если детали скриншота плохо видны. «Вписать» вернёт общий вид.'
+ ].join('\n');
+ return n;
+}
+function addGuide(p){
+ if(p.steps.some(n=>n.template==='guide'))return;
+ addIntro(p);
+ const intro=p.steps.find(n=>n.type==='intro'),guide=guideNode(intro.group);
+ guide.next=intro.next;
+ intro.next=guide.id;
+ p.steps.splice(p.steps.indexOf(intro)+1,0,guide);
+ p.layout[guide.id]={x:60,y:310};
+}
 function addIntro(p){if(p.steps.some(n=>n.type==='intro'))return;const intro=node('intro',p.groups[0].id);intro.next=p.start;p.steps.unshift(intro);p.start=intro.id;p.layout[intro.id]={x:60,y:20};sequence(p);}
 function fieldCandidates(p,stepId,fieldId){return FieldRules.candidates({...toCourse(p),steps:ordered(p)},stepId,fieldId);}
 function usedFields(p){return FieldRules.remembered(toCourse(p));}
-root.ScenaModel={addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,field,links,toCourse,previewCourse,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
+root.ScenaModel={guideNode,addGuide,addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,field,links,toCourse,previewCourse,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
 })(typeof window!=='undefined'?window:globalThis);

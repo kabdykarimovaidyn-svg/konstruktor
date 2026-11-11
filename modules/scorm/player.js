@@ -56,6 +56,7 @@ function run(course,runtimeFactory){
  window.addEventListener('resize',requestFit);
  function navigation(area){
   const nav=el('div',undefined,area,'navigation'),step=byId[state.step];
+  if(step.template==='guide')nav.classList.add('guide-navigation');
   if(['form','click'].includes(step.type)){
    const visible=step.showNext??!(step.jumps?.length||step.submitRect);
    if(!visible)nav.style.display='none';
@@ -63,8 +64,41 @@ function run(course,runtimeFactory){
   return nav;
  }
  function decorateOptions(step,parent){const positioned=step.options.some(o=>o.rect);if(positioned){parent.classList.add('positioned-options');}for(const o of step.options){const b=button(o.label,()=>o.wrong?wrong(o.error):go(o.next),parent,'choice-button');if(o.rect)overlay(b,o.rect);if(/^#[a-f0-9]{6}$/i.test(o.color||'')){b.style.background=o.color;b.style.borderColor=o.color;}if(/^#[a-f0-9]{6}$/i.test(o.textColor||''))b.style.color=o.textColor;if(Number(o.fontSize)>=10&&Number(o.fontSize)<=32)b.style.fontSize=o.fontSize+'px';b.style.borderRadius=o.rounded===false?'0':'6px';}}
+ function renderGuide(step,parent){
+  const guide=el('section',undefined,parent,'learner-guide');
+  el('h2',step.title||'Как проходить тренажёр',guide);
+  el('p','Посмотрите, что означают элементы на экране.',guide,'guide-subtitle');
+  const grid=el('div',undefined,guide,'guide-layout');
+  const demo=el('div',undefined,grid,'guide-demo');
+  demo.setAttribute('aria-hidden','true');
+  const top=el('div',undefined,demo,'guide-demo-top');
+  el('span','Прогресс',top);
+  el('span','Ошибок: 0',top);
+  const progress=el('div',undefined,demo,'guide-progress');
+  for(let i=0;i<6;i++)el('i',undefined,progress,i<3?'complete':'');
+  el('div','Задание | Заполните данные клиента',demo,'guide-task');
+  el('h3','Карточка клиента',demo);
+  el('p','Телефон',demo);
+  el('div','+7 701',demo,'guide-field');
+  el('p','Тип обращения',demo);
+  el('div','Выберите…  ▾',demo,'guide-field');
+  el('div','Открыть заказы',demo,'guide-active');
+  el('p','☑ Данные проверены',demo);
+  el('div','Проверьте номер телефона',demo,'guide-error');
+  el('small','Увеличить ↗',demo);
+  const list=el('div',undefined,grid,'guide-list');
+  for(const [i,line] of (step.body||'').split('\n').filter(Boolean).entries()){
+   const separator=line.indexOf('|');
+   const item=el('div',undefined,list,'guide-item');
+   el('span',i+1,item,'guide-number');
+   const text=el('div',undefined,item);
+   el('strong',separator<0?line:line.slice(0,separator),text);
+   if(separator>=0)el('p',line.slice(separator+1),text);
+  }
+  el('p','При переходе между экранами введённые данные сохраняются в текущем прохождении.',guide,'guide-note');
+ }
  function render(){
-  generation++;rememberScreen=null;mediaViewport=null;mediaStage=null;mediaZoom=1;const version=generation;const s=byId[state.step],area=$('screen');area.replaceChildren();area.className=['intro','end'].includes(s.type)?'terminal-screen':'content-screen';requestFit();$('feedback').textContent='';$('feedback').className='';$('task').textContent=instruction(s);$('step').textContent=s.type==='video'?'Видеоматериал':s.type==='choice'?'Вопрос':s.type==='message'?'Пояснение':s.type==='slide'?'Презентация':'Практическое задание';stats();progress();if($('task-title'))$('task-title').textContent=s.taskTitle||({video:'Просмотр видео',choice:'Выбор решения',form:'Работа в программе',click:'Работа в программе',message:'Изучение материала',slide:'Презентация'})[s.type]||'Учебный шаг';if($('task-banner'))$('task-banner').hidden=['end','intro'].includes(s.type);if($('work-bar'))$('work-bar').hidden=['end','intro'].includes(s.type);
+  generation++;rememberScreen=null;mediaViewport=null;mediaStage=null;mediaZoom=1;const version=generation;const s=byId[state.step],area=$('screen');area.replaceChildren();area.className=['intro','end'].includes(s.type)?'terminal-screen':'content-screen';requestFit();$('feedback').textContent='';$('feedback').className='';$('task').textContent=instruction(s);$('step').textContent=s.type==='video'?'Видеоматериал':s.type==='choice'?'Вопрос':s.type==='message'?'Пояснение':s.type==='slide'?'Презентация':'Практическое задание';stats();progress();if($('task-title'))$('task-title').textContent=s.taskTitle||({video:'Просмотр видео',choice:'Выбор решения',form:'Работа в программе',click:'Работа в программе',message:'Изучение материала',slide:'Презентация'})[s.type]||'Учебный шаг';if($('task-banner'))$('task-banner').hidden=['end','intro'].includes(s.type)||s.template==='guide';if($('work-bar'))$('work-bar').hidden=['end','intro'].includes(s.type);
   if(s.type==='return'){
    if(s.penalty!==false)state.errors++;
    // Return nodes are explicit in the graph; target must be a choice, so no automatic loop.
@@ -79,7 +113,7 @@ function run(course,runtimeFactory){
   if(s.type==='choice'&&backgroundVideo){stage.replaceChildren();stage.classList.add('video-stage');watchMedia(stage,viewport);if(frames.has(s.video)){const img=el('img',undefined,stage);img.src=frames.get(s.video);img.alt='Последний кадр ситуации';img.onload=()=>{if(version===generation){mediaRatio=img.naturalWidth/img.naturalHeight||16/9;requestFit();}};}else{const v=el('video',undefined,stage);v.src=backgroundVideo.src;v.preload='auto';v.playsInline=true;v.muted=true;v.setAttribute('aria-label','Последний кадр ситуации');v.addEventListener('loadedmetadata',()=>{if(version===generation){mediaRatio=v.videoWidth/v.videoHeight||16/9;requestFit();}});fit(v);if(s.showMode==='time')v.onloadedmetadata=()=>{v.currentTime=Math.min(Number(s.showAt)||0,Math.max(0,v.duration-.04));v.pause();};if(state.frameId===s.video&&state.frameTime>0){v.onloadedmetadata=()=>{v.currentTime=state.frameTime;v.pause();};}v.onerror=()=>{$('feedback').textContent='Не удалось загрузить последний кадр видео.';};}controls=el('div',undefined,stage,'video-options');}
   if(s.type==='slide'){if(!s.background)el('p','Слайд не найден.',controls);button('Далее',()=>go(s.next),navigation(area));return;}
   if(s.type==='message'){
-   if(s.template==='cards'){const cards=el('div',undefined,controls,'template-cards');(s.body||'').split('\n').filter(Boolean).forEach(t=>el('p',t,cards));}else if(s.template==='dialog'){(s.body||'').split('\n').filter(Boolean).forEach((t,i)=>el('p',t,controls,'dialog-bubble '+(i%2?'reply':'')));}else el('p',s.body||'',controls,'message');button(s.button||'Далее',()=>go(s.next),navigation(area));return;
+   if(s.template==='guide'){renderGuide(s,controls);}else if(s.template==='cards'){const cards=el('div',undefined,controls,'template-cards');(s.body||'').split('\n').filter(Boolean).forEach(t=>el('p',t,cards));}else if(s.template==='dialog'){(s.body||'').split('\n').filter(Boolean).forEach((t,i)=>el('p',t,controls,'dialog-bubble '+(i%2?'reply':'')));}else el('p',s.body||'',controls,'message');button(s.button||'Далее',()=>go(s.next),navigation(area));return;
   }
   if(s.type==='video'){
    stage.classList.add('video-stage');watchMedia(stage,viewport);stage.replaceChildren();const v=el('video',undefined,stage);v.controls=true;v.setAttribute('controlsList','nofullscreen');v.playsInline=true;v.preload='metadata';v.src=s.src;currentVideo=v;v.addEventListener('loadedmetadata',()=>{if(version!==generation)return;mediaRatio=v.videoWidth/v.videoHeight||16/9;requestFit();});
@@ -127,6 +161,30 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 .hotspot:hover,.screenshot .field-label:focus-within{animation:none;box-shadow:0 0 0 2px rgba(0,92,169,.3)}
 @keyframes area-glow{0%,100%{box-shadow:0 0 0 0 rgba(0,92,169,.08)}50%{box-shadow:0 0 0 3px rgba(0,92,169,.28)}}
 @media(prefers-reduced-motion:reduce){.hotspot,.screenshot .field-label{animation:none;box-shadow:0 0 0 1px rgba(0,92,169,.25)}}
+
+.navigation.guide-navigation{left:0;right:0;max-width:100%;justify-content:center}
+.learner-guide h2{color:var(--heading-color);font-size:clamp(22px,3vw,34px);margin:0 0 5px}
+.guide-subtitle{margin:0 0 20px;color:#51677e}
+.guide-layout{display:grid;grid-template-columns:minmax(230px,1fr) minmax(260px,1.15fr);gap:25px;align-items:start}
+.guide-demo{border:1px solid #c9d9e9;border-radius:10px;padding:20px;background:#f5f9fd;position:sticky;top:0}
+.guide-demo-top{display:flex;justify-content:space-between;font-size:11px;color:#526c86}
+.guide-progress{display:flex;gap:4px;margin:7px 0 14px}
+.guide-progress i{height:5px;flex:1;background:#d2e1f1;border-radius:3px}
+.guide-progress .complete{background:var(--accent)}
+.guide-task{background:var(--accent);color:white;padding:10px;border-radius:5px}
+.guide-demo h3{font-size:20px;color:var(--heading-color);margin:20px 0 12px}
+.guide-demo p{margin:10px 0 5px}
+.guide-field{background:white;border:1px solid #8aa4bd;border-radius:4px;padding:8px;color:#344c64}
+.guide-active{margin:18px 0 12px;background:#e6f1ff;border:1px solid var(--accent);border-radius:5px;padding:10px;color:var(--accent);animation:area-glow 2.8s ease-in-out infinite;text-align:center}
+.guide-error{background:#fff0ed;border:1px solid #df7878;color:#a02a24;padding:10px;border-radius:5px;margin:16px 0 10px}
+.guide-list{display:grid;gap:14px}
+.guide-item{display:flex;gap:10px;font-size:13px}
+.guide-number{display:flex;align-items:center;justify-content:center;background:var(--accent);color:white;border-radius:5px;width:27px;height:27px;flex-shrink:0}
+.guide-item strong{font-size:15px;color:var(--heading-color)}
+.guide-item p{margin:3px 0 0;line-height:1.45}
+.guide-note{margin:20px 0 0;font-size:12px;color:#51677e}
+@media(max-width:650px){.guide-layout{grid-template-columns:1fr}.guide-demo{position:static}.guide-list{gap:12px}}
+@media(prefers-reduced-motion:reduce){.guide-active{animation:none}}
 `;
 const markup='<header class="course-header"><img id="course-logo" hidden alt="Логотип"><h1 id="title"></h1><span id="errors" class="error-counter" role="status"></span></header><main><div id="course-progress" class="segmented-progress" role="group"></div><section id="task-banner" class="task-banner" aria-label="Задание"><strong class="task-label">Задание</strong><h2 id="task-title" hidden></h2><p id="task"></p><button id="more-task" hidden type="button" aria-expanded="false">Полностью</button></section><div id="work-bar" hidden><span id="step"></span></div><div id="feedback" role="status" aria-live="polite"></div><section id="screen"></section><div id="session-warning" role="status" hidden></div></main>';
 
