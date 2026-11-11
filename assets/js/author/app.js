@@ -36,6 +36,7 @@ function renderInspector(){const n=node();$('selected-id').textContent=n?.id||''
     '</select></label><button data-redraw-jump="'+i+'">Обвести заново</button> <button data-remove-jump="'+i+'">Удалить</button></div>';
   }
  }
+ if(['form','click'].includes(n.type))out+=checkbox('Показывать кнопку «Далее» под экраном','showNext',n.showNext??!(n.jumps?.length||n.submitRect))+'<p class="small">Проверку заполненных полей можно назначить области «Далее» на скриншоте.</p>';
  if(['form','click'].includes(n.type))out+=`<label>Действие на экране<select data-screen-action><option value="click" ${n.type==='click'?'selected':''}>Нажать кнопку</option><option value="form" ${n.type==='form'?'selected':''}>Ввести данные в поля</option><option value="add-select">＋ Выпадающий список</option><option value="add-checkbox">＋ Галочка</option><option value="add-radio">＋ Переключатели</option><option value="add-jump">＋ Переход</option></select></label>`;
  if(n.type==='choice'){
   out+=target('Показать ответы поверх последнего кадра видео','video',n.video,{videoOnly:true})+checkbox('Сначала выбрать вариант, затем «Далее»','selectBeforeContinue',n.selectBeforeContinue)+'<p class="small">Для выбора поверх видео отключите режим «сначала выбрать».</p>';
