@@ -54,3 +54,8 @@ click('Начать');
 const markers=nodes.screen.all().filter(e=>e.className==='guide-marker').map(e=>Number(e.textContent)).sort((a,b)=>a-b);
 assert.deepEqual(markers,[1,2,3,4,5,6,7,8,9]);
 console.log('На иллюстрации присутствуют все девять номеров легенды.');
+const illustrationMarkers=nodes.screen.all().filter(e=>e.className==='guide-marker').map(e=>Number(e.textContent));
+assert.deepEqual(illustrationMarkers,[1,2,3,4,5,6,7,8,9]);
+const legendTitles=all('strong').map(e=>e.textContent);
+assert.deepEqual(legendTitles,['Прогресс','Счётчик ошибок','Задание','Поле ввода','Выпадающий список','Активная область','Галочка','Сообщение об ошибке','Увеличить']);
+console.log('Номера на иллюстрации и пояснения следуют одному порядку сверху вниз.');

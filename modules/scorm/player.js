@@ -76,23 +76,27 @@ function run(course,runtimeFactory){
    el('span',number,element,'guide-marker');
    return element;
   }
-  const top=el('div',undefined,demo,'guide-demo-top');
-  el('span','Прогресс',top);
-  marker(el('span','Ошибок: 0',top),8);
   const progress=marker(el('div',undefined,demo,'guide-progress'),1);
   for(let i=0;i<6;i++)el('i',undefined,progress,i<3?'complete':'');
-  marker(el('div','Задание | Заполните данные клиента',demo,'guide-task'),2);
+  const top=el('div',undefined,demo,'guide-demo-top');
+  el('span','Прогресс',top);
+  marker(el('span','Ошибок: 0',top),2);
+  marker(el('div','Задание | Заполните данные клиента',demo,'guide-task'),3);
   el('h3','Карточка клиента',demo);
   el('p','Телефон',demo);
   marker(el('div','+7 701',demo,'guide-field'),4);
   el('p','Тип обращения',demo);
   marker(el('div','Выберите…  ▾',demo,'guide-field'),5);
-  marker(el('div','Открыть заказы',demo,'guide-active'),3);
-  marker(el('p','☑ Данные проверены',demo),6);
-  marker(el('div','Проверьте номер телефона',demo,'guide-error'),7);
+  marker(el('div','Открыть заказы',demo,'guide-active'),6);
+  marker(el('p','☑ Данные проверены',demo),7);
+  marker(el('div','Проверьте номер телефона',demo,'guide-error'),8);
   marker(el('small','Увеличить ↗',demo),9);
   const list=el('div',undefined,grid,'guide-list');
-  for(const [i,line] of (step.body||'').split('\n').filter(Boolean).entries()){
+  const order=['Прогресс','Счётчик ошибок','Задание','Поле ввода','Выпадающий список','Активная область','Галочка','Сообщение об ошибке','Увеличить'];
+  const lines=(step.body||'').split('\n').filter(Boolean);
+  const rank=line=>{const index=order.indexOf(line.split('|')[0]);return index<0?order.length:index;};
+  lines.sort((a,b)=>rank(a)-rank(b));
+  for(const [i,line] of lines.entries()){
    const separator=line.indexOf('|');
    const item=el('div',undefined,list,'guide-item');
    el('span',i+1,item,'guide-number');
@@ -178,7 +182,7 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 .guide-demo small.guide-marked{display:block;padding-left:16px}
 .guide-progress{margin-top:18px!important}
 .guide-demo{border:1px solid #c9d9e9;border-radius:10px;padding:20px;background:#f5f9fd;position:sticky;top:0}
-.guide-demo-top{display:flex;justify-content:space-between;font-size:11px;color:#526c86}
+.guide-demo-top{display:flex;justify-content:space-between;font-size:11px;color:#526c86;margin:10px 0 14px}
 .guide-progress{display:flex;gap:4px;margin:7px 0 14px}
 .guide-progress i{height:5px;flex:1;background:#d2e1f1;border-radius:3px}
 .guide-progress .complete{background:var(--accent)}
