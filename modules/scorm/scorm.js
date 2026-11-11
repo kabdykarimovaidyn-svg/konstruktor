@@ -24,7 +24,7 @@ function validate(course){
   for(const id of links(s)){if(!ids.has(id))throw Error('Переход на несуществующий шаг: '+id);}
   if(s.type==='slide'&&!s.background)throw Error('Отсутствует слайд презентации.');
   if(s.type==='choice'&&s.showMode==='time'&&(!Number.isFinite(Number(s.showAt))||Number(s.showAt)<0))throw Error('Укажите секунду появления кнопок.');
-  if(s.jumps?.some(j=>!j.label||!j.rect||!s.background||!course.steps.some(t=>t.id===j.next&&t.background))&&course.previewScope!=='step')throw Error('Настройте область перехода и целевой скриншот.');
+  if(s.jumps?.some(j=>!j.label||!j.rect||!s.background||!course.steps.some(t=>t.id===j.next))&&course.previewScope!=='step')throw Error('Настройте область перехода и целевой шаг.');
   if(s.type==='click'&&!s.rect&&!s.jumps?.length)throw Error('Нужна область нажатия.');
   if([s.rect,s.submitRect,...(s.fields||[]).map(f=>f.rect),...(s.options||[]).map(o=>o.rect),...(s.jumps||[]).map(j=>j.rect)].filter(Boolean).some(r=>!['x','y','w','h'].every(k=>Number.isFinite(r[k]))||r.x<0||r.y<0||r.w<=0||r.h<=0||r.x+r.w>100.001||r.y+r.h>100.001))throw Error('Область должна быть внутри экрана (0–100%).');
  }

@@ -23,18 +23,24 @@ function inspect(p){const problems=[],warnings=[],ids=new Set(p.steps.map(s=>s.i
   if(n.type==='choice'&&(!n.options?.length||!n.options.some(o=>!o.wrong)))add('нужен хотя бы один вариант с переходом.');
   if(n.type==='choice'&&n.video&&!p.steps.some(s=>s.id===n.video&&s.type==='video'))add('выберите существующее видео для последнего кадра.');
   if(n.type==='form'&&(!n.fields?.length))add('добавьте поле ввода.');if(n.type==='form'&&n.background&&n.fields?.some(f=>!f.rect))add('выделите области всех полей на скриншоте.');
-  if(n.jumps?.some(j=>!j.rect||!n.background||!p.steps.some(t=>t.id===j.next&&t.background)))add('для перехода укажите область и целевой скриншот.');
+  if(n.jumps?.some(j=>!j.rect||!n.background||!p.steps.some(t=>t.id===j.next)))add('для перехода укажите область и целевой шаг.');
   for(const edge of links(n)){if(!edge.to)add('не настроен переход «'+edge.label+'».');else if(!ids.has(edge.to))add('переход ведёт к удалённому шагу.');}
   if(n.type==='return'&&n.next&&!p.steps.some(s=>s.id===n.next&&s.type==='choice'))add('возврат должен вести к точке выбора.');
  }
  const seen=new Set(),stack=[p.start];while(stack.length){const id=stack.pop();if(seen.has(id)||!ids.has(id))continue;seen.add(id);links(p.steps.find(n=>n.id===id)).forEach(e=>stack.push(e.to));}
- for(const n of p.steps)if(!seen.has(n.id))warnings.push({id:n.id,text:n.title+': шаг недостижим из начала курса.'});
+ for(const n of p.steps)if(!seen.has(n.id)){
+  const incoming=p.steps.filter(source=>links(source).some(edge=>edge.to===n.id));
+  const reason=incoming.length
+   ?'На него ведут переходы из '+incoming.map(source=>'«'+source.title+'»').join(', ')+', но эти шаги тоже не соединены с началом курса. Свяжите эту ветку с доступным шагом.'
+   :'На этот шаг не ведёт ни один переход. На предыдущем экране выберите его в поле «Далее» или в области «Переход».';
+  warnings.push({id:n.id,text:'«'+n.title+'» сотрудник не увидит при прохождении с начала. '+reason+' Если это запасной экран, предупреждение можно оставить.'});
+ }
  const ending=new Set(p.steps.filter(n=>n.type==='end').map(n=>n.id));let changed=true;while(changed){changed=false;for(const n of p.steps)if(!ending.has(n.id)&&links(n).some(e=>ending.has(e.to))){ending.add(n.id);changed=true;}}
  for(const n of p.steps)if(seen.has(n.id)&&!ending.has(n.id))problems.push({id:n.id,text:n.title+': из этой ветки нет пути к завершению.'});
  for(const issue of FieldRules.issues(toCourse(p)))problems.push({id:issue.id,text:(p.steps.find(n=>n.id===issue.id)?.title||'Поля')+': '+issue.message});
  return {problems,warnings};
 }
-function link(p,from,key,to){const a=p.steps.find(n=>n.id===from),b=p.steps.find(n=>n.id===to);if(!a||!b||a.type==='end')throw Error('Выберите существующие шаги.');if(a.type==='return'&&b.type!=='choice')throw Error('Возврат должен вести к выбору.');const jump=a.jumps?.find(j=>j.id===key);if(jump){if(!b.background)throw Error('Выберите шаг со скриншотом.');jump.next=to;p.settings.flow='branching';}else if(a.options){p.settings.flow='branching';const option=a.options.find(o=>o.id===key);if(!option)throw Error('Вариант удалён.');option.next=to;}else{p.settings.flow='branching';a.next=to;}}
+function link(p,from,key,to){const a=p.steps.find(n=>n.id===from),b=p.steps.find(n=>n.id===to);if(!a||!b||a.type==='end')throw Error('Выберите существующие шаги.');if(a.type==='return'&&b.type!=='choice')throw Error('Возврат должен вести к выбору.');const jump=a.jumps?.find(j=>j.id===key);if(jump){jump.next=to;p.settings.flow='branching';}else if(a.options){p.settings.flow='branching';const option=a.options.find(o=>o.id===key);if(!option)throw Error('Вариант удалён.');option.next=to;}else{p.settings.flow='branching';a.next=to;}}
 function remove(p,id){p.steps=p.steps.filter(n=>n.id!==id);delete p.layout[id];for(const n of p.steps){if(n.next===id)n.next='';if(n.video===id)n.video='';[...(n.options||[]),...(n.jumps||[])].forEach(o=>{if(o.next===id)o.next='';});}if(p.start===id)p.start=p.steps[0]?.id||'';sequence(p);}
 
 function ordered(p){return p.groups.flatMap(g=>p.steps.filter(n=>n.group===g.id));}

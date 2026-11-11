@@ -101,18 +101,24 @@ function inspect(p){const problems=[],warnings=[],ids=new Set(p.steps.map(s=>s.i
   if(n.type==='choice'&&(!n.options?.length||!n.options.some(o=>!o.wrong)))add('нужен хотя бы один вариант с переходом.');
   if(n.type==='choice'&&n.video&&!p.steps.some(s=>s.id===n.video&&s.type==='video'))add('выберите существующее видео для последнего кадра.');
   if(n.type==='form'&&(!n.fields?.length))add('добавьте поле ввода.');if(n.type==='form'&&n.background&&n.fields?.some(f=>!f.rect))add('выделите области всех полей на скриншоте.');
-  if(n.jumps?.some(j=>!j.rect||!n.background||!p.steps.some(t=>t.id===j.next&&t.background)))add('для перехода укажите область и целевой скриншот.');
+  if(n.jumps?.some(j=>!j.rect||!n.background||!p.steps.some(t=>t.id===j.next)))add('для перехода укажите область и целевой шаг.');
   for(const edge of links(n)){if(!edge.to)add('не настроен переход «'+edge.label+'».');else if(!ids.has(edge.to))add('переход ведёт к удалённому шагу.');}
   if(n.type==='return'&&n.next&&!p.steps.some(s=>s.id===n.next&&s.type==='choice'))add('возврат должен вести к точке выбора.');
  }
  const seen=new Set(),stack=[p.start];while(stack.length){const id=stack.pop();if(seen.has(id)||!ids.has(id))continue;seen.add(id);links(p.steps.find(n=>n.id===id)).forEach(e=>stack.push(e.to));}
- for(const n of p.steps)if(!seen.has(n.id))warnings.push({id:n.id,text:n.title+': шаг недостижим из начала курса.'});
+ for(const n of p.steps)if(!seen.has(n.id)){
+  const incoming=p.steps.filter(source=>links(source).some(edge=>edge.to===n.id));
+  const reason=incoming.length
+   ?'На него ведут переходы из '+incoming.map(source=>'«'+source.title+'»').join(', ')+', но эти шаги тоже не соединены с началом курса. Свяжите эту ветку с доступным шагом.'
+   :'На этот шаг не ведёт ни один переход. На предыдущем экране выберите его в поле «Далее» или в области «Переход».';
+  warnings.push({id:n.id,text:'«'+n.title+'» сотрудник не увидит при прохождении с начала. '+reason+' Если это запасной экран, предупреждение можно оставить.'});
+ }
  const ending=new Set(p.steps.filter(n=>n.type==='end').map(n=>n.id));let changed=true;while(changed){changed=false;for(const n of p.steps)if(!ending.has(n.id)&&links(n).some(e=>ending.has(e.to))){ending.add(n.id);changed=true;}}
  for(const n of p.steps)if(seen.has(n.id)&&!ending.has(n.id))problems.push({id:n.id,text:n.title+': из этой ветки нет пути к завершению.'});
  for(const issue of FieldRules.issues(toCourse(p)))problems.push({id:issue.id,text:(p.steps.find(n=>n.id===issue.id)?.title||'Поля')+': '+issue.message});
  return {problems,warnings};
 }
-function link(p,from,key,to){const a=p.steps.find(n=>n.id===from),b=p.steps.find(n=>n.id===to);if(!a||!b||a.type==='end')throw Error('Выберите существующие шаги.');if(a.type==='return'&&b.type!=='choice')throw Error('Возврат должен вести к выбору.');const jump=a.jumps?.find(j=>j.id===key);if(jump){if(!b.background)throw Error('Выберите шаг со скриншотом.');jump.next=to;p.settings.flow='branching';}else if(a.options){p.settings.flow='branching';const option=a.options.find(o=>o.id===key);if(!option)throw Error('Вариант удалён.');option.next=to;}else{p.settings.flow='branching';a.next=to;}}
+function link(p,from,key,to){const a=p.steps.find(n=>n.id===from),b=p.steps.find(n=>n.id===to);if(!a||!b||a.type==='end')throw Error('Выберите существующие шаги.');if(a.type==='return'&&b.type!=='choice')throw Error('Возврат должен вести к выбору.');const jump=a.jumps?.find(j=>j.id===key);if(jump){jump.next=to;p.settings.flow='branching';}else if(a.options){p.settings.flow='branching';const option=a.options.find(o=>o.id===key);if(!option)throw Error('Вариант удалён.');option.next=to;}else{p.settings.flow='branching';a.next=to;}}
 function remove(p,id){p.steps=p.steps.filter(n=>n.id!==id);delete p.layout[id];for(const n of p.steps){if(n.next===id)n.next='';if(n.video===id)n.video='';[...(n.options||[]),...(n.jumps||[])].forEach(o=>{if(o.next===id)o.next='';});}if(p.start===id)p.start=p.steps[0]?.id||'';sequence(p);}
 
 function ordered(p){return p.groups.flatMap(g=>p.steps.filter(n=>n.group===g.id));}
@@ -201,7 +207,30 @@ function run(course,runtimeFactory){
  function finishCourse(buttonElement,status){if(finishing||finished)return;finishing=true;buttonElement.disabled=true;let ok=false;const wasConnected=api.connected;try{ok=api.finish(state)===true;}catch{}if(!ok){status.textContent='Не удалось сохранить завершение. Проверьте соединение и нажмите «Завершить» ещё раз.';status.className='finish-status failure';buttonElement.disabled=false;finishing=false;return;}finished=true;finishing=false;warning('');buttonElement.textContent='Завершено';status.textContent=course.preview?'Просмотр завершён.':wasConnected?'Результат сохранён. Если окно не закрылось, закройте просмотр в системе обучения.':'Просмотр завершён. Для учёта результата открывайте курс из системы обучения.';status.className='finish-status';if(course.preview){try{window.parent?.postMessage({type:'scena-preview-finished',token:course.previewToken},'*');}catch{}return;}try{if(!window.parent||window.parent===window){if(typeof window.close==='function')window.close();}else window.parent.postMessage({type:'scena-course-finished',courseId:course.id,status:'completed'},'*');}catch{}}
  function instruction(s){if(s.instruction?.trim())return s.instruction;return ({video:byId[s.next]?.showMode==='time'?'Посмотрите видео до появления вариантов и выберите действие.':'Посмотрите видео до конца и продолжите выполнение задания.',choice:s.selectBeforeContinue?'Выберите вариант ответа, затем нажмите «Далее».':'Выберите один из вариантов ответа.',form:'Заполните поля на экране и нажмите кнопку продолжения.',input:'Введите данные и нажмите «Далее».',click:'Нажмите нужную кнопку на экране программы.',message:'Ознакомьтесь с пояснением и продолжите.',slide:'Изучите слайд и нажмите «Далее».'})[s.type]||'';}
  let mediaViewport=null,mediaStage=null,mediaRatio=16/9,mediaZoom=1;
- function fitMedia(){if(!mediaViewport?.getBoundingClientRect||!mediaStage)return;const box=mediaViewport.getBoundingClientRect(),cs=window.getComputedStyle(mediaViewport),innerW=mediaViewport.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),innerH=mediaViewport.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom),w=Math.max(1,Math.floor(Math.min(innerW,innerH*mediaRatio)-1))*mediaZoom;mediaStage.style.width=w+'px';mediaStage.style.height=w/mediaRatio+'px';if(mediaStage.style.setProperty)mediaStage.style.setProperty('--field-font',Math.max(9,Math.min(20,w/60))+'px');}
+ function fitSelects(){
+  if(!mediaStage?.querySelectorAll)return;
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d');
+  if(!ctx)return;
+  for(const input of mediaStage.querySelectorAll('select')){
+   const box=input.getBoundingClientRect();
+   if(!box.width||!box.height)continue;
+   const computed=window.getComputedStyle(input);
+   const fontFamily=computed.fontFamily||'Arial';
+   const padding=Math.min(6,box.width*.04);
+   const arrow=Math.min(24,box.width*.2);
+   const available=Math.max(1,box.width-padding*2-arrow-4);
+   const heightLimit=Math.max(1,(box.height-4)*.65);
+   const maximum=Math.min(20,heightLimit);
+   ctx.font=maximum+'px '+fontFamily;
+   const longest=Math.max(1,...Array.from(input.options,option=>ctx.measureText(option.textContent).width));
+   const fontSize=Math.max(1,Math.min(maximum,maximum*available/longest));
+   input.style.fontSize=fontSize+'px';
+   input.style.padding='0 '+padding+'px';
+   input.style.lineHeight='normal';
+  }
+ }
+ function fitMedia(){if(!mediaViewport?.getBoundingClientRect||!mediaStage)return;const box=mediaViewport.getBoundingClientRect(),cs=window.getComputedStyle(mediaViewport),innerW=mediaViewport.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),innerH=mediaViewport.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom),w=Math.max(1,Math.floor(Math.min(innerW,innerH*mediaRatio)-1))*mediaZoom;mediaStage.style.width=w+'px';mediaStage.style.height=w/mediaRatio+'px';if(mediaStage.style.setProperty)mediaStage.style.setProperty('--field-font',Math.max(9,Math.min(20,w/60))+'px');fitSelects();}
  function watchMedia(stage,viewport,ratio=16/9){mediaStage=stage;mediaViewport=viewport;mediaRatio=ratio;fitMedia();}
  function footer(area){const tools=el('div',undefined,area,'screen-tools');el('span',$('step').textContent,tools,'page-caption');return tools;}
  function resizeLayout(){const task=$('task'),more=$('more-task'),banner=$('task-banner');if(more&&task?.getBoundingClientRect&&banner?.classList?.contains&&!banner.classList.contains('expanded'))more.hidden=task.scrollHeight<=task.clientHeight+1;fitMedia();}const requestFit=()=>{if(typeof window.requestAnimationFrame==='function')window.requestAnimationFrame(resizeLayout);else resizeLayout();};
@@ -256,6 +285,7 @@ function run(course,runtimeFactory){
    if(s.rect||!s.jumps?.length){const hit=button(s.label||'Продолжить',()=>go(s.next),stage,s.background?'hotspot':'');if(s.background)overlay(hit,s.rect);}else if(s.next)button('Далее',()=>go(s.next),navigation(area));
   }
   if(s.background)for(const j of s.jumps||[]){const hit=button(j.label,()=>go(j.next),stage,'hotspot');overlay(hit,j.rect);}
+  requestFit();
   stage.addEventListener('click',e=>{if(e.target===stage||e.target.tagName==='IMG')wrong();});
  }
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save();});window.addEventListener('pagehide',e=>{if(e.persisted)save();else api.finish(state);});if($('save'))$('save').onclick=save;render();save();
@@ -294,7 +324,7 @@ function validate(course){
   for(const id of links(s)){if(!ids.has(id))throw Error('Переход на несуществующий шаг: '+id);}
   if(s.type==='slide'&&!s.background)throw Error('Отсутствует слайд презентации.');
   if(s.type==='choice'&&s.showMode==='time'&&(!Number.isFinite(Number(s.showAt))||Number(s.showAt)<0))throw Error('Укажите секунду появления кнопок.');
-  if(s.jumps?.some(j=>!j.label||!j.rect||!s.background||!course.steps.some(t=>t.id===j.next&&t.background))&&course.previewScope!=='step')throw Error('Настройте область перехода и целевой скриншот.');
+  if(s.jumps?.some(j=>!j.label||!j.rect||!s.background||!course.steps.some(t=>t.id===j.next))&&course.previewScope!=='step')throw Error('Настройте область перехода и целевой шаг.');
   if(s.type==='click'&&!s.rect&&!s.jumps?.length)throw Error('Нужна область нажатия.');
   if([s.rect,s.submitRect,...(s.fields||[]).map(f=>f.rect),...(s.options||[]).map(o=>o.rect),...(s.jumps||[]).map(j=>j.rect)].filter(Boolean).some(r=>!['x','y','w','h'].every(k=>Number.isFinite(r[k]))||r.x<0||r.y<0||r.w<=0||r.h<=0||r.x+r.w>100.001||r.y+r.h>100.001))throw Error('Область должна быть внутри экрана (0–100%).');
  }
@@ -733,8 +763,8 @@ function renderInspector(){const n=node();$('selected-id').textContent=n?.id||''
   for(const [i,j] of (n.jumps||[]).entries()){
    const base='jumps.'+i+'.';
    out+='<div class="block">'+input('Название перехода',base+'label',j.label)+
-    '<label>Открыть скриншот<select data-path="'+base+'next"><option value="">Не выбран</option>'+
-    p.steps.filter(t=>t.background&&t.id!==n.id).map(t=>'<option value="'+h(t.id)+'" '+(j.next===t.id?'selected':'')+'>'+h(t.title)+'</option>').join('')+
+    '<label>Перейти к шагу<select data-path="'+base+'next"><option value="">Не выбран</option>'+
+    p.steps.filter(t=>t.id!==n.id).map(t=>'<option value="'+h(t.id)+'" '+(j.next===t.id?'selected':'')+'>'+h(t.title)+'</option>').join('')+
     '</select></label><button data-redraw-jump="'+i+'">Обвести заново</button> <button data-remove-jump="'+i+'">Удалить</button></div>';
   }
  }
@@ -770,7 +800,7 @@ function setDrawing(tool){if(tool.kind==='new-field'&&(node()?.fields?.length||0
 function bindDrawing(){const wrap=$('screen-wrap');let start=null,draft=null;
  wrap.onpointerdown=e=>{if(!drawing)return;e.preventDefault();const b=wrap.getBoundingClientRect();start={x:Math.max(0,Math.min(100,(e.clientX-b.left)/b.width*100)),y:Math.max(0,Math.min(100,(e.clientY-b.top)/b.height*100))};draft=document.createElement('div');draft.className='zone draft';wrap.append(draft);wrap.setPointerCapture(e.pointerId);};
  wrap.onpointermove=e=>{if(!start)return;const b=wrap.getBoundingClientRect(),x=Math.max(0,Math.min(100,(e.clientX-b.left)/b.width*100)),y=Math.max(0,Math.min(100,(e.clientY-b.top)/b.height*100));draft.dataset.rect=JSON.stringify({x:Math.min(start.x,x),y:Math.min(start.y,y),w:Math.abs(x-start.x),h:Math.abs(y-start.y)});const r=JSON.parse(draft.dataset.rect);Object.assign(draft.style,{left:r.x+'%',top:r.y+'%',width:r.w+'%',height:r.h+'%'});};
- wrap.onpointerup=()=>{if(!start)return;start=null;const r=JSON.parse(draft.dataset.rect||'null');draft.remove();draft=null;if(!r||r.w<1||r.h<1){notice('Область слишком маленькая. Обведите её ещё раз.');return;}const tool=drawing,n=node();if(tool.kind==='crop'){drawing=null;openCrop(n,r);return;}mutate(()=>{if(tool.kind==='new-jump'){(n.jumps||=[]).push({id:M.uid('jump'),label:'Переход',next:'',rect:r});p.settings.flow='branching';}else if(tool.kind==='jump')n.jumps[tool.index].rect=r;else if(tool.kind==='new-field'){if(n.type==='click'){n.type='form';n.fields=[];n.button='Далее';if(n.error==='Нажмите на нужную область.')n.error='Проверьте заполнение полей.';if(n.rect)n.submitRect=n.rect;delete n.rect;}const f=M.field();f.rect=r;f.kind=tool.fieldKind||'text';if(f.kind==='checkbox'){f.label='Галочка';f.expectedChecked=true;}if(['select','radio'].includes(f.kind)){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';f.label=f.kind==='select'?'Список':'Переключатели';}n.fields.push(f);}else if(tool.kind==='field')n.fields[tool.index].rect=r;else if(tool.kind==='submit')n.submitRect=r;else if(tool.kind==='click')n.rect=r;else if(tool.kind==='option')n.options[tool.index].rect=r;});drawing=null;render();if(tool.kind==='new-field')ScenaAreas.pickField(n.fields.at(-1).id);notice(tool.kind==='new-jump'?'Область сохранена. Выберите целевой скриншот справа.':'Область сохранена. Настройте проверку шага.');if((n.type==='form'||tool.kind==='new-jump')&&innerWidth<=1160)document.body.classList.add('inspector-open');};wrap.onpointercancel=()=>{start=null;draft?.remove();draft=null;};}
+ wrap.onpointerup=()=>{if(!start)return;start=null;const r=JSON.parse(draft.dataset.rect||'null');draft.remove();draft=null;if(!r||r.w<1||r.h<1){notice('Область слишком маленькая. Обведите её ещё раз.');return;}const tool=drawing,n=node();if(tool.kind==='crop'){drawing=null;openCrop(n,r);return;}mutate(()=>{if(tool.kind==='new-jump'){(n.jumps||=[]).push({id:M.uid('jump'),label:'Переход',next:'',rect:r});p.settings.flow='branching';}else if(tool.kind==='jump')n.jumps[tool.index].rect=r;else if(tool.kind==='new-field'){if(n.type==='click'){n.type='form';n.fields=[];n.button='Далее';if(n.error==='Нажмите на нужную область.')n.error='Проверьте заполнение полей.';if(n.rect)n.submitRect=n.rect;delete n.rect;}const f=M.field();f.rect=r;f.kind=tool.fieldKind||'text';if(f.kind==='checkbox'){f.label='Галочка';f.expectedChecked=true;}if(['select','radio'].includes(f.kind)){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';f.label=f.kind==='select'?'Список':'Переключатели';}n.fields.push(f);}else if(tool.kind==='field')n.fields[tool.index].rect=r;else if(tool.kind==='submit')n.submitRect=r;else if(tool.kind==='click')n.rect=r;else if(tool.kind==='option')n.options[tool.index].rect=r;});drawing=null;render();if(tool.kind==='new-field')ScenaAreas.pickField(n.fields.at(-1).id);notice(tool.kind==='new-jump'?'Область сохранена. Выберите целевой шаг справа.':'Область сохранена. Настройте проверку шага.');if((n.type==='form'||tool.kind==='new-jump')&&innerWidth<=1160)document.body.classList.add('inspector-open');};wrap.onpointercancel=()=>{start=null;draft?.remove();draft=null;};}
 function loadCropImage(path){
  return new Promise((resolve,reject)=>{
   const img=new Image();
@@ -839,7 +869,7 @@ function addBatch(){try{validateFiles(pendingBatch);const anchor=uploadTarget?.i
  if(p.settings.flow==='sequence')ScenaMap.arrange();});selected=nodes[0]?.node.id;selectedGroup=group;$('batch-dialog').close();clearBatch();uploadTarget=null;setTab('editor');notice(nodes.length+' отдельных шагов добавлено. Предыдущие скриншоты сохранены.');}catch(e){notice(e.message);}}
 
 function download(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);}
-function issuesHTML(report){return (report.problems.length?report.problems.map(e=>`<button class="issue" data-issue-node="${h(e.id||'')}">${h(e.text)}</button>`).join(''):'<div class="issue ok">Курс готов к сборке.</div>')+report.warnings.map(e=>`<button class="issue warning" data-issue-node="${h(e.id)}">${h(e.text)}</button>`).join('');}
+function issuesHTML(report){return (report.problems.length?report.problems.map(e=>`<button class="issue" data-issue-node="${h(e.id||'')}">${h(e.text)}</button>`).join(''):'<div class="issue ok">Курс готов к сборке.</div>')+(report.warnings.length?'<p class="small">Предупреждения ниже не мешают выгрузке. Нажмите на сообщение, чтобы открыть шаг.</p>':'')+report.warnings.map(e=>`<button class="issue warning" data-issue-node="${h(e.id)}">${h(e.text)}</button>`).join('');}
 function check(){const report=M.inspect(p);if(!report.problems.length){try{ScenaSCORM.validate(M.toCourse(p));}catch(e){report.problems.push({text:e.message});}}return report;}
 function preview(fromCurrent=false){try{const course=fromCurrent?M.previewCourse(p,selected):M.toCourse(p);if(!fromCurrent){const report=check();if(report.problems.length){setTab('settings');$('validation-results').innerHTML=issuesHTML(report);notice('Исправьте ошибки курса перед полным просмотром. Отдельный шаг можно проверить кнопкой «Посмотреть этот шаг».');return;}}previewToken=M.uid('preview');course.previewToken=previewToken;const resources=Object.fromEntries(Object.keys(p.assets).map(path=>[path,url(path)]));$('preview-frame').srcdoc=ScenaSCORM.preview(course,resources);document.querySelector('#preview-dialog .dialog-bar strong').textContent=fromCurrent?(course.previewDependencies?'Проверка шага · сначала заполните исходное поле':'Проверка выбранного шага'):'Предпросмотр курса';$('preview-dialog').showModal();}catch(error){notice('Проверьте настройки этого шага: '+error.message);}}
 async function build(){const button=$('build-scorm');button.disabled=true;$('export-status').textContent='Собирается ZIP…';await new Promise(r=>setTimeout(r,30));try{const report=check();if(report.problems.length)throw Error('Курс содержит ошибки.');const referenced=new Set([...p.steps.flatMap(n=>[n.src,n.background]),p.theme?.logo].filter(Boolean));const assets=Object.fromEntries([...referenced].map(path=>[path,p.assets[path].blob]));const blob=await ScenaSCORM.build(M.toCourse(p),assets);download(blob,p.id+'-scorm12.zip');$('export-status').textContent='Готово: '+(blob.size/1048576).toFixed(2)+' МБ. Загрузите ZIP в тестовый курс Mirapolis.';}catch(e){$('export-status').textContent='Не удалось собрать пакет: '+e.message;}finally{button.disabled=false;}}

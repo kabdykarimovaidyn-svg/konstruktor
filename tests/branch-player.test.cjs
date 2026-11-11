@@ -22,3 +22,11 @@ assert.equal(all('input')[0].value,'+7 701');
 assert.equal(screenPlayer.getState().errors,0);
 assert.ok(!JSON.stringify(saved).includes('+7 701'));
 console.log('Переход между скриншотами сохраняет незавершённый ввод в сеансе.');
+// A hotspot can finish the course directly, without a screenshot destination.
+screens.steps[0].jumps.push({id:'done',label:'Finish here',next:'finish',rect:{x:70,y:5,w:20,h:10}});
+assert.equal(ScenaSCORM.validate(screens),true);
+const finishViaArea=window.ScenaPlayer.run(screens,()=>bridge);
+click('Finish here');
+assert.equal(finishViaArea.getState().step,'finish');
+assert.equal(finishViaArea.getState().done,true);
+console.log('Область перехода открывает завершающий слайд.');

@@ -38,7 +38,30 @@ function run(course,runtimeFactory){
  function finishCourse(buttonElement,status){if(finishing||finished)return;finishing=true;buttonElement.disabled=true;let ok=false;const wasConnected=api.connected;try{ok=api.finish(state)===true;}catch{}if(!ok){status.textContent='Не удалось сохранить завершение. Проверьте соединение и нажмите «Завершить» ещё раз.';status.className='finish-status failure';buttonElement.disabled=false;finishing=false;return;}finished=true;finishing=false;warning('');buttonElement.textContent='Завершено';status.textContent=course.preview?'Просмотр завершён.':wasConnected?'Результат сохранён. Если окно не закрылось, закройте просмотр в системе обучения.':'Просмотр завершён. Для учёта результата открывайте курс из системы обучения.';status.className='finish-status';if(course.preview){try{window.parent?.postMessage({type:'scena-preview-finished',token:course.previewToken},'*');}catch{}return;}try{if(!window.parent||window.parent===window){if(typeof window.close==='function')window.close();}else window.parent.postMessage({type:'scena-course-finished',courseId:course.id,status:'completed'},'*');}catch{}}
  function instruction(s){if(s.instruction?.trim())return s.instruction;return ({video:byId[s.next]?.showMode==='time'?'Посмотрите видео до появления вариантов и выберите действие.':'Посмотрите видео до конца и продолжите выполнение задания.',choice:s.selectBeforeContinue?'Выберите вариант ответа, затем нажмите «Далее».':'Выберите один из вариантов ответа.',form:'Заполните поля на экране и нажмите кнопку продолжения.',input:'Введите данные и нажмите «Далее».',click:'Нажмите нужную кнопку на экране программы.',message:'Ознакомьтесь с пояснением и продолжите.',slide:'Изучите слайд и нажмите «Далее».'})[s.type]||'';}
  let mediaViewport=null,mediaStage=null,mediaRatio=16/9,mediaZoom=1;
- function fitMedia(){if(!mediaViewport?.getBoundingClientRect||!mediaStage)return;const box=mediaViewport.getBoundingClientRect(),cs=window.getComputedStyle(mediaViewport),innerW=mediaViewport.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),innerH=mediaViewport.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom),w=Math.max(1,Math.floor(Math.min(innerW,innerH*mediaRatio)-1))*mediaZoom;mediaStage.style.width=w+'px';mediaStage.style.height=w/mediaRatio+'px';if(mediaStage.style.setProperty)mediaStage.style.setProperty('--field-font',Math.max(9,Math.min(20,w/60))+'px');}
+ function fitSelects(){
+  if(!mediaStage?.querySelectorAll)return;
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d');
+  if(!ctx)return;
+  for(const input of mediaStage.querySelectorAll('select')){
+   const box=input.getBoundingClientRect();
+   if(!box.width||!box.height)continue;
+   const computed=window.getComputedStyle(input);
+   const fontFamily=computed.fontFamily||'Arial';
+   const padding=Math.min(6,box.width*.04);
+   const arrow=Math.min(24,box.width*.2);
+   const available=Math.max(1,box.width-padding*2-arrow-4);
+   const heightLimit=Math.max(1,(box.height-4)*.65);
+   const maximum=Math.min(20,heightLimit);
+   ctx.font=maximum+'px '+fontFamily;
+   const longest=Math.max(1,...Array.from(input.options,option=>ctx.measureText(option.textContent).width));
+   const fontSize=Math.max(1,Math.min(maximum,maximum*available/longest));
+   input.style.fontSize=fontSize+'px';
+   input.style.padding='0 '+padding+'px';
+   input.style.lineHeight='normal';
+  }
+ }
+ function fitMedia(){if(!mediaViewport?.getBoundingClientRect||!mediaStage)return;const box=mediaViewport.getBoundingClientRect(),cs=window.getComputedStyle(mediaViewport),innerW=mediaViewport.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),innerH=mediaViewport.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom),w=Math.max(1,Math.floor(Math.min(innerW,innerH*mediaRatio)-1))*mediaZoom;mediaStage.style.width=w+'px';mediaStage.style.height=w/mediaRatio+'px';if(mediaStage.style.setProperty)mediaStage.style.setProperty('--field-font',Math.max(9,Math.min(20,w/60))+'px');fitSelects();}
  function watchMedia(stage,viewport,ratio=16/9){mediaStage=stage;mediaViewport=viewport;mediaRatio=ratio;fitMedia();}
  function footer(area){const tools=el('div',undefined,area,'screen-tools');el('span',$('step').textContent,tools,'page-caption');return tools;}
  function resizeLayout(){const task=$('task'),more=$('more-task'),banner=$('task-banner');if(more&&task?.getBoundingClientRect&&banner?.classList?.contains&&!banner.classList.contains('expanded'))more.hidden=task.scrollHeight<=task.clientHeight+1;fitMedia();}const requestFit=()=>{if(typeof window.requestAnimationFrame==='function')window.requestAnimationFrame(resizeLayout);else resizeLayout();};
@@ -93,6 +116,7 @@ function run(course,runtimeFactory){
    if(s.rect||!s.jumps?.length){const hit=button(s.label||'Продолжить',()=>go(s.next),stage,s.background?'hotspot':'');if(s.background)overlay(hit,s.rect);}else if(s.next)button('Далее',()=>go(s.next),navigation(area));
   }
   if(s.background)for(const j of s.jumps||[]){const hit=button(j.label,()=>go(j.next),stage,'hotspot');overlay(hit,j.rect);}
+  requestFit();
   stage.addEventListener('click',e=>{if(e.target===stage||e.target.tagName==='IMG')wrong();});
  }
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save();});window.addEventListener('pagehide',e=>{if(e.persisted)save();else api.finish(state);});if($('save'))$('save').onclick=save;render();save();
