@@ -267,21 +267,26 @@ function run(course,runtimeFactory){
   const grid=el('div',undefined,guide,'guide-layout');
   const demo=el('div',undefined,grid,'guide-demo');
   demo.setAttribute('aria-hidden','true');
+  function marker(element,number){
+   element.classList.add('guide-marked');
+   el('span',number,element,'guide-marker');
+   return element;
+  }
   const top=el('div',undefined,demo,'guide-demo-top');
   el('span','Прогресс',top);
-  el('span','Ошибок: 0',top);
-  const progress=el('div',undefined,demo,'guide-progress');
+  marker(el('span','Ошибок: 0',top),8);
+  const progress=marker(el('div',undefined,demo,'guide-progress'),1);
   for(let i=0;i<6;i++)el('i',undefined,progress,i<3?'complete':'');
-  el('div','Задание | Заполните данные клиента',demo,'guide-task');
+  marker(el('div','Задание | Заполните данные клиента',demo,'guide-task'),2);
   el('h3','Карточка клиента',demo);
   el('p','Телефон',demo);
-  el('div','+7 701',demo,'guide-field');
+  marker(el('div','+7 701',demo,'guide-field'),4);
   el('p','Тип обращения',demo);
-  el('div','Выберите…  ▾',demo,'guide-field');
-  el('div','Открыть заказы',demo,'guide-active');
-  el('p','☑ Данные проверены',demo);
-  el('div','Проверьте номер телефона',demo,'guide-error');
-  el('small','Увеличить ↗',demo);
+  marker(el('div','Выберите…  ▾',demo,'guide-field'),5);
+  marker(el('div','Открыть заказы',demo,'guide-active'),3);
+  marker(el('p','☑ Данные проверены',demo),6);
+  marker(el('div','Проверьте номер телефона',demo,'guide-error'),7);
+  marker(el('small','Увеличить ↗',demo),9);
   const list=el('div',undefined,grid,'guide-list');
   for(const [i,line] of (step.body||'').split('\n').filter(Boolean).entries()){
    const separator=line.indexOf('|');
@@ -362,6 +367,12 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 .learner-guide h2{color:var(--heading-color);font-size:clamp(22px,3vw,34px);margin:0 0 5px}
 .guide-subtitle{margin:0 0 20px;color:#51677e}
 .guide-layout{display:grid;grid-template-columns:minmax(230px,1fr) minmax(260px,1.15fr);gap:25px;align-items:start}
+.guide-marked{position:relative}
+.guide-marker{position:absolute;left:-15px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:white;border:2px solid white;box-shadow:0 1px 4px #183e6240;font:700 12px Arial,sans-serif;z-index:2}
+.guide-demo-top .guide-marked{padding-left:16px}
+.guide-demo-top .guide-marker{left:-10px}
+.guide-demo small.guide-marked{display:block;padding-left:16px}
+.guide-progress{margin-top:18px!important}
 .guide-demo{border:1px solid #c9d9e9;border-radius:10px;padding:20px;background:#f5f9fd;position:sticky;top:0}
 .guide-demo-top{display:flex;justify-content:space-between;font-size:11px;color:#526c86}
 .guide-progress{display:flex;gap:4px;margin:7px 0 14px}

@@ -49,3 +49,8 @@ assert.equal(all('strong').filter(e=>e.textContent==='Галочка').length,1)
 click('Понятно, начать');
 assert.equal(guidePlayer.getState().done,true);
 console.log('Инструкция отображает легенду и продолжает курс по центральному маршруту.');
+window.ScenaPlayer.run(guideCourse,()=>bridge);
+click('Начать');
+const markers=nodes.screen.all().filter(e=>e.className==='guide-marker').map(e=>Number(e.textContent)).sort((a,b)=>a-b);
+assert.deepEqual(markers,[1,2,3,4,5,6,7,8,9]);
+console.log('На иллюстрации присутствуют все девять номеров легенды.');
