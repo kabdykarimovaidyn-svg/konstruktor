@@ -43,3 +43,12 @@ for(const type of ['form','click','choice','video','intro','message','slide','re
  }
 }
 console.log('Правая панель: разделы, инструменты, выбранное поле и переходы доступны для всех типов шагов.');
+selected=fieldStep;
+selected.decorations=[{id:'v1',type:'text',label:'Заголовок',text:'Тест',rect:{x:1,y:1,w:40,h:20},autoFont:false,fontSize:24}];
+context.ScenaAreas.currentVisual=n=>n.decorations?.[0];
+vm.runInContext('renderInspector()',context);
+for(const name of ['Фигуры и текст','Свойства объекта','Цвет текста','Размер шрифта','Полужирный','Выравнивание'])
+ assert.ok(panel.innerHTML.includes(name),name);
+assert.ok(!panel.innerHTML.includes('data-inspector-design'));
+assert.ok(panel.innerHTML.includes('data-path="decorations.0.text"'));
+console.log('Панель оформления настраивает выбранный текстовый объект.');

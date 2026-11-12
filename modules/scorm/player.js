@@ -1,7 +1,8 @@
 /* Same player runs in author preview and in the exported SCORM package. */
 (function(root){
 'use strict';
-function run(course,runtimeFactory){
+function run(course,runtimeFactory,visualMarkup){
+ if(!visualMarkup&&window.ScenaVisuals)visualMarkup=window.ScenaVisuals.markup;
  const byId=Object.fromEntries(course.steps.map(s=>[s.id,s]));
  const api=course.preview?{connected:false,warnings:[],get:()=>'',save:()=>true,finish:()=>true}:runtimeFactory(window);
  let state={v:4,values:{},progress:'',course:course.id,step:course.start,errors:0,done:false,score:0,time:0,refs:{},salt:''},currentVideo=null,lastSave=0,generation=0;const frames=new Map(),screenValues=new Map();let rememberScreen=null;
@@ -132,6 +133,7 @@ function run(course,runtimeFactory){
   const viewport=el('div',undefined,area,'media-viewport');const stage=el('div',undefined,viewport,'stage');const tools=footer(area);let controls=stage;
   if(s.background){const img=el('img',undefined,stage);img.src=s.background;img.alt='Экран программы';watchMedia(stage,viewport);img.onload=()=>{if(version!==generation)return;mediaRatio=img.naturalWidth/img.naturalHeight||16/9;requestFit();};const zoom=button('Увеличить',()=>{mediaZoom=mediaZoom===1?2:1;zoom.textContent=mediaZoom===1?'Увеличить':'Вписать';viewport.classList.toggle('zoomed',mediaZoom>1);fitMedia();},tools,'zoom-button');img.onerror=()=>{$('feedback').textContent='Не удалось загрузить скриншот.';};stage.classList.add('screenshot');}
   else{controls=el('div',undefined,stage,'controls');}
+  if(s.background&&visualMarkup)for(const visual of s.decorations||[])stage.insertAdjacentHTML('beforeend',visualMarkup(visual));
   const backgroundVideo=s.video&&byId[s.video];
   if(s.type==='choice'&&backgroundVideo){stage.replaceChildren();stage.classList.add('video-stage');watchMedia(stage,viewport);if(frames.has(s.video)){const img=el('img',undefined,stage);img.src=frames.get(s.video);img.alt='Последний кадр ситуации';img.onload=()=>{if(version===generation){mediaRatio=img.naturalWidth/img.naturalHeight||16/9;requestFit();}};}else{const v=el('video',undefined,stage);v.src=backgroundVideo.src;v.preload='auto';v.playsInline=true;v.muted=true;v.setAttribute('aria-label','Последний кадр ситуации');v.addEventListener('loadedmetadata',()=>{if(version===generation){mediaRatio=v.videoWidth/v.videoHeight||16/9;requestFit();}});fit(v);if(s.showMode==='time')v.onloadedmetadata=()=>{v.currentTime=Math.min(Number(s.showAt)||0,Math.max(0,v.duration-.04));v.pause();};if(state.frameId===s.video&&state.frameTime>0){v.onloadedmetadata=()=>{v.currentTime=state.frameTime;v.pause();};}v.onerror=()=>{$('feedback').textContent='Не удалось загрузить последний кадр видео.';};}controls=el('div',undefined,stage,'video-options');}
   if(s.type==='slide'){if(!s.background)el('p','Слайд не найден.',controls);button('Далее',()=>go(s.next),navigation(area));return;}
@@ -226,6 +228,11 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 .business-start{min-width:185px;padding:13px 32px;border-radius:3px;font-size:15px;font-weight:600;margin-top:7px}
 .business-bottom{border-top:1px solid #dde5ed;padding-top:20px;display:flex;justify-content:space-between;gap:15px;font-size:10px;letter-spacing:.06em;color:#73869a}
 @media(max-width:600px){.business-bottom{flex-direction:column;text-align:center}.business-center{gap:18px}.business-brand{padding-bottom:18px}}
+.screen-visual{position:absolute;pointer-events:none;container-type:size;z-index:1;overflow:visible}
+.screen-visual svg{display:block;width:100%;height:100%;overflow:visible}
+.screen-visual svg>*{vector-effect:non-scaling-stroke}
+.visual-text{box-sizing:border-box;width:100%;height:100%;padding:2px;line-height:1.15;white-space:pre-wrap;overflow-wrap:anywhere;overflow:hidden}
+.screenshot .field-label,.screenshot .hotspot,.screenshot .screen-radio{z-index:2}
 `;
 const markup='<header class="course-header"><img id="course-logo" hidden alt="Логотип"><h1 id="title"></h1><span id="errors" class="error-counter" role="status"></span></header><main><div id="course-progress" class="segmented-progress" role="group"></div><section id="task-banner" class="task-banner" aria-label="Задание"><strong class="task-label">Задание</strong><h2 id="task-title" hidden></h2><p id="task"></p><button id="more-task" hidden type="button" aria-expanded="false">Полностью</button></section><div id="work-bar" hidden><span id="step"></span></div><div id="feedback" role="status" aria-live="polite"></div><section id="screen"></section><div id="session-warning" role="status" hidden></div></main>';
 

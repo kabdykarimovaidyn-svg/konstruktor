@@ -23,7 +23,7 @@ function rectFields(path,r){r=r||{x:20,y:20,w:30,h:10};return `<div class="rect-
 function checkbox(label,path,value){return `<label><input type="checkbox" data-path="${h(path)}" ${value?'checked':''}>${h(label)}</label>`;}
 function renderList(){ScenaOutline.render();}
 const inspectorSections=new Map();
-let inspectorSelectedField='';
+let inspectorSelectedField='',inspectorSelectedVisual='';
 function inspectorSection(n,key,title,content,defaultOpen=false){
  const stateKey=n.id+':'+key;
  const open=inspectorSections.has(stateKey)?inspectorSections.get(stateKey):defaultOpen;
@@ -36,6 +36,10 @@ function renderInspector(){
  if(!n){panel.innerHTML='<p class="muted">Добавьте или выберите шаг.</p>';return;}
  const section=(key,title,body,open=false)=>inspectorSection(n,key,title,body,open);
  const screen=['form','click'].includes(n.type);
+ const selectedVisual=ScenaAreas.currentVisual?.(n);
+ const visualKey=selectedVisual?n.id+':'+selectedVisual.id:'';
+ if(visualKey&&visualKey!==inspectorSelectedVisual){inspectorSections.set(n.id+':design',true);inspectorSections.set(n.id+':visual-properties',true);inspectorSections.set(n.id+':field',false);}
+ inspectorSelectedVisual=visualKey;
  const selectedField=n.type==='form'?ScenaAreas.currentField(n):null;
  const selectionKey=selectedField?n.id+':'+selectedField.id:'';
  if(selectionKey&&selectionKey!==inspectorSelectedField)inspectorSections.set(n.id+':field',true);
@@ -71,12 +75,28 @@ function renderInspector(){
    '<p class="small">Выберите инструмент, затем обведите его область на скриншоте.</p>'+
    '<div class="inspector-tools">'+tools.map(([key,label,description])=>
     '<button type="button" data-inspector-tool="'+key+'" '+(!n.background&&['jump','submit'].includes(key)?'disabled':'')+'><strong>'+label+'</strong><small>'+description+'</small></button>').join('')+'</div>',true);
-  if(n.type==='form'){
+  if(n.type==='form'&&!selectedVisual){
    const fields='<label>Выбранное поле<select data-inspector-field>'+
     n.fields.map(f=>'<option value="'+h(f.id)+'" '+(ScenaAreas.currentField(n)?.id===f.id?'selected':'')+'>'+h(f.label)+'</option>').join('')+
     '</select></label>'+ScenaFieldUI.html(p,n,{input,checkbox,rectFields});
    out+=section('field','Свойства поля',fields,true);
   }
+ }
+ if(['form','click','choice'].includes(n.type)){
+  const items=[['text','Текст'],['rectangle','Прямоугольник'],['ellipse','Круг / овал'],['triangle','Треугольник'],['arrow','Стрелка'],['line','Линия']];
+  const tools='<p class="small">Выберите объект и обведите его место на скриншоте. Затем потяните за края, чтобы изменить размер.</p>'+
+   '<div class="inspector-tools visual-tool-grid">'+items.map(([key,title])=>'<button data-add-visual="'+key+'" '+(!n.background?'disabled':'')+'>'+title+'</button>').join('')+'</div>';
+  out+=section('visuals','Фигуры и текст',tools);
+ }
+ if(selectedVisual){
+  const i=n.decorations.indexOf(selectedVisual),base='decorations.'+i+'.';
+  let props='<label>Выбранный объект<select data-inspector-visual>'+n.decorations.map(v=>
+   '<option value="'+h(v.id)+'" '+(v.id===selectedVisual.id?'selected':'')+'>'+h(v.label)+'</option>').join('')+'</select></label>'+
+   input('Название объекта',base+'label',selectedVisual.label);
+  if(selectedVisual.type==='text')props+=textarea('Текст',base+'text',selectedVisual.text);
+  props+='<details class="advanced"><summary>Положение и размер</summary>'+rectFields(base+'rect',selectedVisual.rect)+'</details>'+
+   '<button data-delete-visual="'+i+'" class="full danger">Удалить объект</button>';
+  out+=section('visual-properties','Свойства объекта',props,true);
  }
  let content='';
  if(n.type==='intro')content=textarea('Описание на обложке','body',n.body);
@@ -149,8 +169,26 @@ function renderInspector(){
  if(n.type==='return')next=target('Вернуться к вопросу','next',n.next,{choiceOnly:true})+
   checkbox('Засчитать ветку как одну ошибку','penalty',n.penalty!==false);
  if(next)out+=section('next','Переход к следующему шагу',next);
- out+=section('design','Оформление',
-  '<p class="small">Логотип, шрифт и цвета задаются для всего курса.</p><button data-inspector-design class="full">Открыть оформление курса</button>');
+ let design='<p class="small">Выделите текст или фигуру на скриншоте, чтобы настроить оформление этого объекта.</p>';
+ if(selectedVisual){
+  const v=selectedVisual,i=n.decorations.indexOf(v),base='decorations.'+i+'.';
+  design=input(v.type==='text'?'Цвет текста':'Цвет обводки',base+'color',v.color||'#005ca9','color');
+  if(v.type==='text'){
+   design+='<label>Шрифт<select data-path="'+base+'font">'+['Arial','Verdana','Georgia','Tahoma','Trebuchet MS'].map(font=>
+    '<option '+(v.font===font?'selected':'')+'>'+font+'</option>').join('')+'</select></label>'+
+    checkbox('Автоподбор по размеру блока',base+'autoFont',v.autoFont!==false)+
+    (v.autoFont===false?input('Размер шрифта',base+'fontSize',v.fontSize||24,'number'):'')+
+    checkbox('Полужирный',base+'bold',v.bold)+checkbox('Курсив',base+'italic',v.italic)+
+    '<label>Выравнивание<select data-path="'+base+'align">'+[['left','Слева'],['center','По центру'],['right','Справа']].map(([key,title])=>
+     '<option value="'+key+'" '+(v.align===key?'selected':'')+'>'+title+'</option>').join('')+'</select></label>';
+  }else{
+   design+=input('Толщина обводки',base+'strokeWidth',v.strokeWidth??2,'number')+
+    input('Поворот, °',base+'rotation',v.rotation||0,'number');
+  }
+  if(v.type!=='line')design+=checkbox('Без заливки',base+'noFill',v.noFill!==false)+
+   (v.noFill===false?input('Цвет заливки',base+'fill',v.fill||'#e7f1fb','color'):'');
+ }
+ out+=section('design','Оформление',design,!!selectedVisual);
  out+=section('actions','Действия с шагом',
   '<button data-set-start class="full">Сделать началом курса</button><button data-duplicate class="full">Создать копию шага</button><button data-delete class="full danger">Удалить шаг</button>');
  panel.innerHTML=out;
@@ -180,7 +218,13 @@ function setDrawing(tool){if(tool.kind==='new-field'&&(node()?.fields?.length||0
 function bindDrawing(){const wrap=$('screen-wrap');let start=null,draft=null;
  wrap.onpointerdown=e=>{if(!drawing)return;e.preventDefault();const b=wrap.getBoundingClientRect();start={x:Math.max(0,Math.min(100,(e.clientX-b.left)/b.width*100)),y:Math.max(0,Math.min(100,(e.clientY-b.top)/b.height*100))};draft=document.createElement('div');draft.className='zone draft';wrap.append(draft);wrap.setPointerCapture(e.pointerId);};
  wrap.onpointermove=e=>{if(!start)return;const b=wrap.getBoundingClientRect(),x=Math.max(0,Math.min(100,(e.clientX-b.left)/b.width*100)),y=Math.max(0,Math.min(100,(e.clientY-b.top)/b.height*100));draft.dataset.rect=JSON.stringify({x:Math.min(start.x,x),y:Math.min(start.y,y),w:Math.abs(x-start.x),h:Math.abs(y-start.y)});const r=JSON.parse(draft.dataset.rect);Object.assign(draft.style,{left:r.x+'%',top:r.y+'%',width:r.w+'%',height:r.h+'%'});};
- wrap.onpointerup=()=>{if(!start)return;start=null;const r=JSON.parse(draft.dataset.rect||'null');draft.remove();draft=null;if(!r||r.w<1||r.h<1){notice('Область слишком маленькая. Обведите её ещё раз.');return;}const tool=drawing,n=node();if(tool.kind==='crop'){drawing=null;openCrop(n,r);return;}mutate(()=>{if(tool.kind==='new-jump'){(n.jumps||=[]).push({id:M.uid('jump'),label:'Переход',next:'',rect:r});p.settings.flow='branching';}else if(tool.kind==='jump')n.jumps[tool.index].rect=r;else if(tool.kind==='new-field'){if(n.type==='click'){n.type='form';n.fields=[];n.button='Далее';if(n.error==='Нажмите на нужную область.')n.error='Проверьте заполнение полей.';if(n.rect)n.submitRect=n.rect;delete n.rect;}const f=M.field();f.rect=r;f.kind=tool.fieldKind||'text';if(f.kind==='checkbox'){f.label='Галочка';f.expectedChecked=true;}if(['select','radio'].includes(f.kind)){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';f.label=f.kind==='select'?'Список':'Переключатели';}n.fields.push(f);}else if(tool.kind==='field')n.fields[tool.index].rect=r;else if(tool.kind==='submit')n.submitRect=r;else if(tool.kind==='click')n.rect=r;else if(tool.kind==='option')n.options[tool.index].rect=r;});drawing=null;if(['new-jump','new-field'].includes(tool.kind))inspectorSections.set(n.id+':add',false);if(tool.kind==='new-jump'){inspectorSections.set(n.id+':field',false);inspectorSections.set(n.id+':jumps',true);inspectorSections.set(n.id+':jump-'+n.jumps.at(-1).id,true);}if(tool.kind==='new-field')inspectorSections.set(n.id+':field',true);render();if(tool.kind==='new-field')ScenaAreas.pickField(n.fields.at(-1).id);notice(tool.kind==='new-jump'?'Область сохранена. Выберите целевой шаг справа.':'Область сохранена. Настройте проверку шага.');if((n.type==='form'||tool.kind==='new-jump')&&innerWidth<=1160)document.body.classList.add('inspector-open');};wrap.onpointercancel=()=>{start=null;draft?.remove();draft=null;};}
+ wrap.onpointerup=()=>{if(!start)return;start=null;const r=JSON.parse(draft.dataset.rect||'null');draft.remove();draft=null;if(!r||r.w<1||r.h<1){notice('Область слишком маленькая. Обведите её ещё раз.');return;}const tool=drawing,n=node();if(tool.kind==='crop'){drawing=null;openCrop(n,r);return;}mutate(()=>{if(tool.kind==='new-visual'){
+ const type=tool.visualType;
+ const names={text:'Текст',rectangle:'Прямоугольник',ellipse:'Круг / овал',triangle:'Треугольник',arrow:'Стрелка',line:'Линия'};
+ (n.decorations||=[]).push({id:M.uid('visual'),type,label:names[type],text:type==='text'?'Введите текст':'',rect:r,color:'#005ca9',fill:'#e7f1fb',noFill:type==='text'||type==='line',strokeWidth:2,autoFont:true,font:'Arial',fontSize:24});
+}else if(tool.kind==='new-jump'){(n.jumps||=[]).push({id:M.uid('jump'),label:'Переход',next:'',rect:r});p.settings.flow='branching';}else if(tool.kind==='jump')n.jumps[tool.index].rect=r;else if(tool.kind==='new-field'){if(n.type==='click'){n.type='form';n.fields=[];n.button='Далее';if(n.error==='Нажмите на нужную область.')n.error='Проверьте заполнение полей.';if(n.rect)n.submitRect=n.rect;delete n.rect;}const f=M.field();f.rect=r;f.kind=tool.fieldKind||'text';if(f.kind==='checkbox'){f.label='Галочка';f.expectedChecked=true;}if(['select','radio'].includes(f.kind)){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';f.label=f.kind==='select'?'Список':'Переключатели';}n.fields.push(f);}else if(tool.kind==='field')n.fields[tool.index].rect=r;else if(tool.kind==='submit')n.submitRect=r;else if(tool.kind==='click')n.rect=r;else if(tool.kind==='option')n.options[tool.index].rect=r;});drawing=null;if(tool.kind==='new-visual'){
+ inspectorSections.set(n.id+':visuals',false);inspectorSections.set(n.id+':visual-properties',true);inspectorSections.set(n.id+':design',true);
+}if(['new-jump','new-field'].includes(tool.kind))inspectorSections.set(n.id+':add',false);if(tool.kind==='new-jump'){inspectorSections.set(n.id+':field',false);inspectorSections.set(n.id+':jumps',true);inspectorSections.set(n.id+':jump-'+n.jumps.at(-1).id,true);}if(tool.kind==='new-field')inspectorSections.set(n.id+':field',true);render();if(tool.kind==='new-visual')ScenaAreas.pickVisual(n.decorations.at(-1).id);if(tool.kind==='new-field')ScenaAreas.pickField(n.fields.at(-1).id);notice(tool.kind==='new-visual'?'Объект добавлен. Текст и оформление можно изменить справа.':tool.kind==='new-jump'?'Область сохранена. Выберите целевой шаг справа.':'Область сохранена. Настройте проверку шага.');if((n.type==='form'||tool.kind==='new-jump')&&innerWidth<=1160)document.body.classList.add('inspector-open');};wrap.onpointercancel=()=>{start=null;draft?.remove();draft=null;};}
 function loadCropImage(path){
  return new Promise((resolve,reject)=>{
   const img=new Image();
@@ -258,12 +302,27 @@ function addNode(type){if(type==='end'&&p.settings.flow==='sequence'&&p.steps.so
 function addTemplate(kind){if(kind==='guide'){const n=M.guideNode(selectedGroup);mutate(()=>M.insert(p,[n],insertionAnchor(),selectedGroup));select(n.id);return;}if(kind==='intro'){if(p.steps.some(n=>n.type==='intro')){select(p.steps.find(n=>n.type==='intro').id);return;}mutate(()=>M.addIntro(p));select(p.start);return;}const n=M.node('message',selectedGroup);n.template=kind;n.title={instruction:'Инструкция',cards:'Карточки',dialog:'Диалог'}[kind]||'Материал';n.body={instruction:'Шаг 1. Подготовьте необходимые данные.\nШаг 2. Выполните действие.\nШаг 3. Проверьте результат.',cards:'Первый ключевой пункт\nВторой ключевой пункт\nТретий ключевой пункт',dialog:'Клиент: Добрый день! Мне нужна помощь.\nСотрудник: Здравствуйте! Уточните, пожалуйста, детали.'}[kind];mutate(()=>M.insert(p,[n],insertionAnchor(),selectedGroup));selected=n.id;render();}
 function setPath(object,path,value){const parts=path.split('.');let ref=object;for(const part of parts.slice(0,-1)){if(!Object.hasOwn(ref,part))throw Error('Поле не найдено.');ref=ref[part];}ref[parts.at(-1)]=value;}
 let textEdit=null;
-$('inspector-content').addEventListener('input',e=>{const path=e.target.dataset.path;if(!path||!(e.target.tagName==='TEXTAREA'||e.target.type==='text'))return;const n=node();if(!n)return;const key=n.id+':'+path;if(textEdit!==key){checkpoint();textEdit=key;}setPath(n,path,e.target.value);changed();renderList();$('selected-title').textContent=n.title;const instruction=$('editor-content').querySelector('.step-instruction span');if(path==='instruction'&&instruction)instruction.textContent=n.instruction;if(path==='taskTitle'){const heading=$('editor-content').querySelector('.step-instruction h3');if(heading)heading.textContent=n.taskTitle||'Работа в программе';}if(/^fields\.\d+\.label$/.test(path)){const f=n.fields[Number(path.split('.')[1])],zone=Array.from(document.querySelectorAll('[data-area-key]')).find(e=>e.dataset.areaKey==='f:'+f.id);if(zone){zone.querySelector('span').textContent=f.label;zone.setAttribute('aria-label','Область: '+f.label);}const chip=Array.from(document.querySelectorAll('[data-select-field]')).find(e=>e.dataset.selectField===f.id);if(chip)chip.textContent=f.label+' · '+({text:'Текст',select:'Список',checkbox:'Галочка',radio:'Переключатели'}[f.kind||'text']);}});
+$('inspector-content').addEventListener('input',e=>{const path=e.target.dataset.path;if(!path||!(e.target.tagName==='TEXTAREA'||e.target.type==='text'))return;const n=node();if(!n)return;const key=n.id+':'+path;if(textEdit!==key){checkpoint();textEdit=key;}setPath(n,path,e.target.value);
+ if(path.startsWith('decorations.')){
+  const wrap=$('screen-wrap');
+  if(wrap){wrap.querySelectorAll('.screen-visual').forEach(el=>el.remove());wrap.insertAdjacentHTML('beforeend',(n.decorations||[]).map(v=>ScenaVisuals.markup(v)).join(''));}
+ }
+ changed();renderList();$('selected-title').textContent=n.title;const instruction=$('editor-content').querySelector('.step-instruction span');if(path==='instruction'&&instruction)instruction.textContent=n.instruction;if(path==='taskTitle'){const heading=$('editor-content').querySelector('.step-instruction h3');if(heading)heading.textContent=n.taskTitle||'Работа в программе';}if(/^fields\.\d+\.label$/.test(path)){const f=n.fields[Number(path.split('.')[1])],zone=Array.from(document.querySelectorAll('[data-area-key]')).find(e=>e.dataset.areaKey==='f:'+f.id);if(zone){zone.querySelector('span').textContent=f.label;zone.setAttribute('aria-label','Область: '+f.label);}const chip=Array.from(document.querySelectorAll('[data-select-field]')).find(e=>e.dataset.selectField===f.id);if(chip)chip.textContent=f.label+' · '+({text:'Текст',select:'Список',checkbox:'Галочка',radio:'Переключатели'}[f.kind||'text']);}});
 $('inspector-content').addEventListener('focusout',()=>{textEdit=null;});
-$('inspector-content').addEventListener('change',e=>{if(e.target.hasAttribute('data-field-match')||e.target.hasAttribute('data-field-autofill')){const autofill=e.target.hasAttribute('data-field-autofill');const f=node()?.fields[Number(e.target.dataset.fieldMatch??e.target.dataset.fieldAutofill)];if(f){const [stepId,fieldId]=e.target.value.split('/');mutate(()=>f[autofill?'autofill':'match']=stepId&&fieldId?{stepId,fieldId}:null);render();}return;}if(e.target.hasAttribute('data-inspector-field')){ScenaAreas.pickField(e.target.value);return;}const path=e.target.dataset.path;if(!path)return;const n=node();if(!n)return;if(e.target.tagName==='TEXTAREA'||e.target.type==='text')return;let value=e.target.type==='checkbox'?e.target.checked:e.target.type==='number'?Number(e.target.value):e.target.value;if(e.target.type==='number'&&!Number.isFinite(value))return;
- mutate(()=>{setPath(n,path,value);if(path==='next'||/^options\.\d+\.next$/.test(path))p.settings.flow='branching';if(path==='group'){selectedGroup=value;M.sequence(p);}if(/(?:rect|submitRect)\./.test(path)){const base=path.split('.').slice(0,-1);let r=n;for(const key of base)r=r[key];r.x=Math.max(0,Math.min(99,r.x));r.y=Math.max(0,Math.min(99,r.y));r.w=Math.max(1,Math.min(100-r.x,r.w));r.h=Math.max(1,Math.min(100-r.y,r.h));}if(/^fields\.\d+\.kind$/.test(path)){const f=n.fields[Number(path.split('.')[1])];if(value!=='text'){f.rule='exact';delete f.match;delete f.inputType;if(['select','radio'].includes(value)&&!f.choices){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';}}}if(path==='background'&&value)n.video='';if(path==='video'&&value){n.background='';n.selectBeforeContinue=false;}});render();});
+$('inspector-content').addEventListener('change',e=>{if(e.target.hasAttribute('data-field-match')||e.target.hasAttribute('data-field-autofill')){const autofill=e.target.hasAttribute('data-field-autofill');const f=node()?.fields[Number(e.target.dataset.fieldMatch??e.target.dataset.fieldAutofill)];if(f){const [stepId,fieldId]=e.target.value.split('/');mutate(()=>f[autofill?'autofill':'match']=stepId&&fieldId?{stepId,fieldId}:null);render();}return;}if(e.target.hasAttribute('data-inspector-visual')){ScenaAreas.pickVisual(e.target.value);return;}if(e.target.hasAttribute('data-inspector-field')){ScenaAreas.pickField(e.target.value);return;}const path=e.target.dataset.path;if(!path)return;const n=node();if(!n)return;if(e.target.tagName==='TEXTAREA'||e.target.type==='text')return;let value=e.target.type==='checkbox'?e.target.checked:e.target.type==='number'?Number(e.target.value):e.target.value;if(e.target.type==='number'&&!Number.isFinite(value))return;
+ mutate(()=>{setPath(n,path,value);
+ if(/^decorations\.\d+\.(fontSize|strokeWidth|rotation)$/.test(path)){
+  const object=n.decorations[Number(path.split('.')[1])],key=path.split('.')[2];
+  const limits={fontSize:[8,120],strokeWidth:[0,12],rotation:[-360,360]}[key];
+  object[key]=Math.max(limits[0],Math.min(limits[1],value));
+ }
+ if(path==='next'||/^options\.\d+\.next$/.test(path))p.settings.flow='branching';if(path==='group'){selectedGroup=value;M.sequence(p);}if(/(?:rect|submitRect)\./.test(path)){const base=path.split('.').slice(0,-1);let r=n;for(const key of base)r=r[key];r.x=Math.max(0,Math.min(99,r.x));r.y=Math.max(0,Math.min(99,r.y));r.w=Math.max(1,Math.min(100-r.x,r.w));r.h=Math.max(1,Math.min(100-r.y,r.h));}if(/^fields\.\d+\.kind$/.test(path)){const f=n.fields[Number(path.split('.')[1])];if(value!=='text'){f.rule='exact';delete f.match;delete f.inputType;if(['select','radio'].includes(value)&&!f.choices){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';}}}if(path==='background'&&value)n.video='';if(path==='video'&&value){n.background='';n.selectBeforeContinue=false;}});render();});
 $('inspector-content').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!node())return;const d=b.dataset,n=node();
- if('inspectorDesign'in d){setTab('settings');$('theme-font')?.focus();return;}
+ if(d.addVisual){
+  if((n.decorations?.length||0)>=50){notice('Доступно до 50 фигур и текстовых блоков.');return;}
+  setDrawing({kind:'new-visual',visualType:d.addVisual});return;
+ }
+ if('deleteVisual'in d){mutate(()=>n.decorations.splice(Number(d.deleteVisual),1));render();return;}
  if(d.inspectorTool){
   const tool=d.inspectorTool;
   if(tool==='jump'){
@@ -312,7 +371,7 @@ $('confirm-no').onclick=()=>resolveConfirm(false);$('confirm-yes').onclick=()=>r
 $('show-inspector').onclick=()=>document.body.classList.add('inspector-open');$('hide-inspector').onclick=()=>document.body.classList.remove('inspector-open');
 function afterRemove(){if(!p.steps.some(n=>n.id===selected))selected=p.steps[0]?.id;if(!p.groups.some(g=>g.id===selectedGroup))selectedGroup=p.groups[0].id;}
 async function removeStep(id){const n=p.steps.find(n=>n.id===id);if(!n)return;if(!await confirmAction('Удалить шаг?',`Шаг «${n.title}» будет удалён. ${p.settings.flow==='sequence'||n.template==='guide'?'Следующий шаг займёт его место.':'Связи с этим шагом потребуется проверить.'} Действие можно отменить.`,'Удалить шаг'))return;mutate(()=>M.remove(p,id));afterRemove();render();notice('Шаг удалён. Нажмите «Отменить», чтобы вернуть его.');}
-function duplicateStep(id){const n=p.steps.find(n=>n.id===id);if(!n)return;const copy=structuredClone(n);copy.id=M.uid('step');copy.title+=' — копия';copy.options?.forEach(o=>o.id=M.uid('opt'));copy.jumps?.forEach(j=>j.id=M.uid('jump'));const fieldIds=new Map((copy.fields||[]).map(f=>[f.id,M.uid('field')]));copy.fields?.forEach(f=>{f.id=fieldIds.get(f.id);if(f.match?.stepId===n.id)f.match={stepId:copy.id,fieldId:fieldIds.get(f.match.fieldId)||f.match.fieldId};});mutate(()=>M.insert(p,[copy],id,n.group));selected=copy.id;selectedGroup=copy.group;render();}
+function duplicateStep(id){const n=p.steps.find(n=>n.id===id);if(!n)return;const copy=structuredClone(n);copy.id=M.uid('step');copy.title+=' — копия';copy.options?.forEach(o=>o.id=M.uid('opt'));copy.jumps?.forEach(j=>j.id=M.uid('jump'));copy.decorations?.forEach(v=>v.id=M.uid('visual'));const fieldIds=new Map((copy.fields||[]).map(f=>[f.id,M.uid('field')]));copy.fields?.forEach(f=>{f.id=fieldIds.get(f.id);if(f.match?.stepId===n.id)f.match={stepId:copy.id,fieldId:fieldIds.get(f.match.fieldId)||f.match.fieldId};});mutate(()=>M.insert(p,[copy],id,n.group));selected=copy.id;selectedGroup=copy.group;render();}
 let renamingStep=null;
 function renameStep(id){const n=p.steps.find(s=>s.id===id);if(!n)return;renamingStep=id;$('step-rename-title').value=n.title;$('step-rename-dialog').showModal();$('step-rename-title').focus();$('step-rename-title').select();}
 $('step-rename-cancel').onclick=()=>$('step-rename-dialog').close();$('step-rename-form').onsubmit=e=>{e.preventDefault();const value=$('step-rename-title').value.trim(),n=p.steps.find(s=>s.id===renamingStep);if(!value||!n)return;mutate(()=>n.title=value);$('step-rename-dialog').close();render();};

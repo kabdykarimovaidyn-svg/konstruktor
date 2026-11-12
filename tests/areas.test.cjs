@@ -4,3 +4,17 @@ function key(key,meta=false,target={closest:()=>false}){let prevented=false;hand
 assert.equal(key('c',true),true);assert.equal(key('v',true),true);assert.equal(n.fields.length,4);assert.notEqual(n.fields[2].id,a.id);assert.notEqual(n.fields[3].id,b.id);assert.equal(n.fields[2].rect.x,12);assert.equal(n.fields[3].rect.x,42);key('ArrowDown');assert.equal(n.fields[2].rect.y,22.25);assert.equal(a.rect.y,20);assert.equal(key('v',true,{closest:()=>true}),false);assert.equal(n.fields.length,4);key('Delete');assert.equal(n.fields.length,2);assert.ok(snapshots.length>=3);console.log('Области: Cmd/Ctrl+C/V, независимые ID, Shift-группа, стрелки, удаление и защита текстового ввода проверены.');
 
 ScenaAreas.pickField(a.id);key('c',true);n.type='click';delete n.fields;n.rect={x:20,y:70,w:30,h:10};key('v',true);assert.equal(n.type,'form');assert.equal(n.fields.length,1);assert.equal(n.submitRect.y,70);console.log('Вставка поля на другой экран сохраняет кнопку перехода.');
+n.background='screen.png';
+n.decorations=[{id:'visual1',type:'text',label:'Заголовок',text:'Пример',rect:{x:5,y:5,w:40,h:15},fontSize:28,autoFont:false}];
+ScenaAreas.pickVisual('visual1');
+assert.equal(ScenaAreas.currentVisual(n).text,'Пример');
+assert.equal(ScenaAreas.currentField(n),undefined);
+key('c',true);key('v',true);
+assert.equal(n.decorations.length,2);
+assert.notEqual(n.decorations[1].id,'visual1');
+assert.equal(n.decorations[1].fontSize,28);
+key('ArrowRight');
+assert.equal(n.decorations[1].rect.x,7.25);
+key('Delete');
+assert.equal(n.decorations.length,1);
+console.log('Текстовый объект: выбор, копирование стиля, перемещение и удаление.');

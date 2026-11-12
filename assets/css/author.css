@@ -50,3 +50,12 @@
 .inspector-section-body .advanced{background:#f6f8fa;border:1px solid #dce3eb;border-radius:4px;margin:10px 0;padding:8px}
 .inspector-section-body .advanced>summary{font-weight:600;color:#455e76;cursor:pointer}
 .inspector-section-body .advanced[open]>summary{margin-bottom:10px}
+.visual-tool-grid{grid-template-columns:1fr 1fr}
+.visual-tool-grid button{font-weight:600;min-height:42px;justify-content:center}
+.canvas-surface>.screen-visual{z-index:1}
+.canvas-surface>.zone{z-index:2}
+.canvas-surface>.visual-zone{background:transparent;border:1px dashed transparent;z-index:3}
+.canvas-surface>.visual-zone:hover{background:transparent;border-color:#91abc5}
+.canvas-surface>.visual-zone.area-selected{background:transparent;border:1px dashed #005ca9}
+.canvas-surface>.visual-zone>span{display:none}
+.canvas-surface>.visual-zone.area-selected>span{display:block;position:absolute;left:0;top:-21px;background:#005ca9;color:white;padding:1px 5px;font-size:10px;white-space:nowrap}

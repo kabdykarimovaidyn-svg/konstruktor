@@ -4,6 +4,7 @@
 const enc=new TextEncoder();
 function escapeXML(value){return String(value).replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));}
 function validate(course){
+ if(!root.ScenaVisuals&&typeof require==='function')require('./visuals.js');
  if(!course||!/^[-a-zA-Z0-9_]{1,80}$/.test(course.id)||!course.title)throw Error('Нужны ID курса и название.');
  if(!Array.isArray(course.steps)||!course.steps.length||course.steps.length>500)throw Error('Нужно от 1 до 500 шагов.');
  const ids=new Set();let endings=0;
@@ -11,6 +12,7 @@ function validate(course){
  if(!ids.has(course.start)||!endings)throw Error('Нужны стартовый и финальный шаги.');
  const links=s=>[...(s.options?.filter(o=>!o.wrong).map(o=>o.next).filter(Boolean)||(s.next?[s.next]:[])),...(s.jumps||[]).map(j=>j.next)];
  for(const s of course.steps){
+  if(s.decorations!==undefined&&!root.ScenaVisuals.valid(s.decorations))throw Error('Некорректные фигуры или текст.');
   if(s.type==='form'&&(!Array.isArray(s.fields)||!s.fields.length))throw Error('Добавьте поле ввода: '+s.id);
   
   if(s.type==='form'&&s.background&&s.fields.some(f=>!f.rect))throw Error('Выделите области всех полей на скриншоте.');
@@ -68,7 +70,7 @@ async function build(course,assets={}){
  for(const s of clone.steps)for(const key of ['src','background'])if(s[key]&&!allowed.has(s[key]))throw Error('Медиафайл не включён в пакет: '+s[key]);
  const data=JSON.stringify(clone).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
  const html='<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escapeXML(course.title)+'</title><link rel="stylesheet" href="player.css">'+root.ScenaPlayer.markup+'<script src="course.js"></script><script src="player.js"></script></html>';
- files.push(['index.html',html],['player.css',css],['course.js','window.SCENA_COURSE='+data+';'],['player.js','('+player.toString()+')(window.SCENA_COURSE,'+runtime.toString()+');']);
+ files.push(['index.html',html],['player.css',css],['course.js','window.SCENA_COURSE='+data+';'],['player.js','('+player.toString()+')(window.SCENA_COURSE,'+runtime.toString()+','+root.ScenaVisuals.markup.toString()+');']);
  const paths=['index.html','player.css','course.js','player.js',...allowed];
  const manifest='<?xml version="1.0" encoding="UTF-8"?><manifest identifier="'+escapeXML(course.id)+'" version="1.0" xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2" xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"><metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata><organizations default="ORG"><organization identifier="ORG"><title>'+escapeXML(course.title)+'</title><item identifier="ITEM" identifierref="SCO"><title>'+escapeXML(course.title)+'</title></item></organization></organizations><resources><resource identifier="SCO" type="webcontent" adlcp:scormtype="sco" href="index.html">'+paths.map(p=>'<file href="'+escapeXML(p)+'"/>').join('')+'</resource></resources></manifest>';
  files.unshift(['imsmanifest.xml',manifest]);return new Blob([zip(files)],{type:'application/zip'});
@@ -78,7 +80,7 @@ function preview(course,assets={}){
  for(const step of clone.steps)for(const key of ['src','background'])if(step[key]){if(!assets[step[key]])throw Error('Не найден медиафайл: '+step[key]);step[key]=assets[step[key]];}
  if(clone.theme?.logo){if(!assets[clone.theme.logo])throw Error('Не найден логотип.');clone.theme.logo=assets[clone.theme.logo];}
  const json=JSON.stringify(clone).replace(/</g,'\\u003c');
- return '<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Предпросмотр</title><style>'+root.ScenaPlayer.css+'</style>'+root.ScenaPlayer.markup+'<script>('+root.ScenaPlayer.run.toString()+')('+json+','+runtime.toString()+');</script></html>';
+ return '<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Предпросмотр</title><style>'+root.ScenaPlayer.css+'</style>'+root.ScenaPlayer.markup+'<script>('+root.ScenaPlayer.run.toString()+')('+json+','+runtime.toString()+','+root.ScenaVisuals.markup.toString()+');</script></html>';
 }
 root.ScenaSCORM=Object.freeze({version:'4.0.0',validate,build,runtime,preview});
 })(typeof window!=='undefined'?window:globalThis);
