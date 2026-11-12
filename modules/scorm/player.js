@@ -168,7 +168,7 @@ function run(course,runtimeFactory){
   }
   if(s.background)for(const j of s.jumps||[]){const hit=button(j.label,()=>go(j.next),stage,'hotspot');overlay(hit,j.rect);}
   requestFit();
-  stage.addEventListener('click',e=>{if(e.target===stage||e.target.tagName==='IMG')wrong();});
+  stage.addEventListener('click',e=>{if(s.countMissClicks===true&&(e.target===stage||e.target.tagName==='IMG'))wrong();});
  }
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save();});window.addEventListener('pagehide',e=>{if(e.persisted)save();else api.finish(state);});if($('save'))$('save').onclick=save;render();save();
  return {getState:()=>({...state,refs:{...state.refs}}),destroy(){generation++;if(currentVideo)currentVideo.pause();api.finish(state);}};

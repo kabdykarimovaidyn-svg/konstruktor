@@ -400,7 +400,7 @@ function run(course,runtimeFactory){
   }
   if(s.background)for(const j of s.jumps||[]){const hit=button(j.label,()=>go(j.next),stage,'hotspot');overlay(hit,j.rect);}
   requestFit();
-  stage.addEventListener('click',e=>{if(e.target===stage||e.target.tagName==='IMG')wrong();});
+  stage.addEventListener('click',e=>{if(s.countMissClicks===true&&(e.target===stage||e.target.tagName==='IMG'))wrong();});
  }
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save();});window.addEventListener('pagehide',e=>{if(e.persisted)save();else api.finish(state);});if($('save'))$('save').onclick=save;render();save();
  return {getState:()=>({...state,refs:{...state.refs}}),destroy(){generation++;if(currentVideo)currentVideo.pause();api.finish(state);}};
@@ -1003,6 +1003,7 @@ function renderInspector(){
   });
   options+='<button data-add-option class="full">Добавить ответ</button>'+
    '<p class="small">Чтобы показать последствия решения, укажите шаг с видео. Ошибку можно засчитать позже через возврат к вопросу.</p>';
+  if(n.background)options+=checkbox('Считать ошибкой нажатие мимо активной области','countMissClicks',n.countMissClicks===true);
   out+=section('answers','Ответы и переходы',options,true);
   const video=target('Видео для последнего кадра','video',n.video,{videoOnly:true})+
    checkbox('Выбрать ответ и подтвердить кнопкой «Далее»','selectBeforeContinue',n.selectBeforeContinue)+
@@ -1033,6 +1034,8 @@ function renderInspector(){
     target('После нажатия','next',n.next);
    if(n.rect)check+='<details class="advanced"><summary>Положение кнопки</summary>'+rectFields('rect',n.rect)+'</details>';
   }
+  check+=checkbox('Считать ошибкой нажатие мимо активной области','countMissClicks',n.countMissClicks===true)+
+   '<p class="small">Если выключено, свободные клики по скриншоту не увеличивают счётчик ошибок. Значения полей проверяются при подтверждении.</p>';
   check+=checkbox('Показывать «Далее» под экраном','showNext',n.showNext??!(n.jumps?.length||n.submitRect));
   out+=section('continue','Проверка и продолжение',check);
  }

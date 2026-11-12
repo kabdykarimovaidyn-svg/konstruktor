@@ -105,6 +105,7 @@ function renderInspector(){
   });
   options+='<button data-add-option class="full">Добавить ответ</button>'+
    '<p class="small">Чтобы показать последствия решения, укажите шаг с видео. Ошибку можно засчитать позже через возврат к вопросу.</p>';
+  if(n.background)options+=checkbox('Считать ошибкой нажатие мимо активной области','countMissClicks',n.countMissClicks===true);
   out+=section('answers','Ответы и переходы',options,true);
   const video=target('Видео для последнего кадра','video',n.video,{videoOnly:true})+
    checkbox('Выбрать ответ и подтвердить кнопкой «Далее»','selectBeforeContinue',n.selectBeforeContinue)+
@@ -135,6 +136,8 @@ function renderInspector(){
     target('После нажатия','next',n.next);
    if(n.rect)check+='<details class="advanced"><summary>Положение кнопки</summary>'+rectFields('rect',n.rect)+'</details>';
   }
+  check+=checkbox('Считать ошибкой нажатие мимо активной области','countMissClicks',n.countMissClicks===true)+
+   '<p class="small">Если выключено, свободные клики по скриншоту не увеличивают счётчик ошибок. Значения полей проверяются при подтверждении.</p>';
   check+=checkbox('Показывать «Далее» под экраном','showNext',n.showNext??!(n.jumps?.length||n.submitRect));
   out+=section('continue','Проверка и продолжение',check);
  }
