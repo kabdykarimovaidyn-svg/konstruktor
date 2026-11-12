@@ -25,9 +25,9 @@ function markup(v){
    line:'<line x1="3" y1="50" x2="97" y2="50"/>'
   };
   if(!shapes[v.type])return '';
-  content='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none" style="transform:rotate('+rotation+'deg)" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+width+'" stroke-linejoin="round">'+shapes[v.type]+'</svg>';
+  content='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+width+'" stroke-linejoin="round">'+shapes[v.type]+'</svg>';
  }
- return '<div class="screen-visual" data-visual-id="'+escape(v.id)+'" '+(v.type==='text'?'':'aria-hidden="true"')+' style="left:'+x+'%;top:'+y+'%;width:'+w+'%;height:'+h+'%">'+content+'</div>';
+ return '<div class="screen-visual" data-visual-id="'+escape(v.id)+'" '+(v.type==='text'?'':'aria-hidden="true"')+' style="left:'+x+'%;top:'+y+'%;width:'+w+'%;height:'+h+'%;transform:rotate('+rotation+'deg);transform-origin:center center">'+content+'</div>';
 }
 function valid(list){
  if(!Array.isArray(list)||list.length>50)return false;

@@ -18,3 +18,41 @@ assert.equal(n.decorations[1].rect.x,7.25);
 key('Delete');
 assert.equal(n.decorations.length,1);
 console.log('Текстовый объект: выбор, копирование стиля, перемещение и удаление.');
+// Rotate an arrow directly on the canvas, then resize along its rotated axis.
+const pointerHandlers={};
+const graphic={dataset:{visualId:'arrow1'},style:{},querySelector:()=>null};
+const zone={dataset:{areaKey:'v:arrow1'},style:{},classList:{add(){}}};
+const wrap={
+ addEventListener:(type,fn)=>pointerHandlers[type]=fn,
+ getBoundingClientRect:()=>({left:0,top:0,width:1000,height:600}),
+ setPointerCapture(){},
+ querySelectorAll:selector=>selector==='[data-area-key]'?[zone]:[graphic]
+};
+const originalGet=document.getElementById;
+document.getElementById=id=>id==='screen-wrap'?wrap:originalGet(id);
+n.decorations=[{id:'arrow1',type:'arrow',label:'Стрелка',rotation:0,rect:{x:30,y:30,w:20,h:10}}];
+ScenaAreas.pickVisual('arrow1');
+ScenaAreas.bind();
+const rotateTarget={dataset:{rotate:''},closest:selector=>selector==='[data-area-key]'?zone:selector==='[data-rotate]'?{}:null};
+const event=(target,x,y,shiftKey=false)=>({
+ target,clientX:x,clientY:y,shiftKey,pointerId:1,preventDefault(){},stopPropagation(){}
+});
+pointerHandlers.pointerdown(event(rotateTarget,400,140));
+pointerHandlers.pointermove(event(rotateTarget,470,210));
+assert.equal(n.decorations[0].rotation,90);
+assert.equal(graphic.style.transform,'rotate(90deg)');
+assert.equal(zone.style.transform,'rotate(90deg)');
+pointerHandlers.pointerup();
+pointerHandlers.pointerdown(event(rotateTarget,470,210));
+pointerHandlers.pointermove(event(rotateTarget,400+70*Math.cos(22*Math.PI/180),210+70*Math.sin(22*Math.PI/180),true));
+assert.equal(n.decorations[0].rotation,105);
+pointerHandlers.pointerup();
+n.decorations[0].rotation=90;
+const resizeTarget={dataset:{resize:'e'},closest:selector=>selector==='[data-area-key]'?zone:null};
+pointerHandlers.pointerdown(event(resizeTarget,400,310));
+pointerHandlers.pointermove(event(resizeTarget,400,360));
+assert.ok(Math.abs(n.decorations[0].rect.w-25)<.001);
+assert.ok(Math.abs(n.decorations[0].rect.h-10)<.001);
+assert.equal(n.decorations[0].rotation,90);
+pointerHandlers.pointerup();
+console.log('Стрелка: поворот мышью, рамка синхронна, Shift кратен 15°, размер меняется по повёрнутой оси.');

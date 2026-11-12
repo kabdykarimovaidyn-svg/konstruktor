@@ -47,8 +47,17 @@ selected=fieldStep;
 selected.decorations=[{id:'v1',type:'text',label:'Заголовок',text:'Тест',rect:{x:1,y:1,w:40,h:20},autoFont:false,fontSize:24}];
 context.ScenaAreas.currentVisual=n=>n.decorations?.[0];
 vm.runInContext('renderInspector()',context);
-for(const name of ['Фигуры и текст','Свойства объекта','Цвет текста','Размер шрифта','Полужирный','Выравнивание'])
+for(const name of ['Фигуры','Текстовый блок','Свойства объекта','Цвет текста','Размер шрифта','Полужирный','Выравнивание'])
  assert.ok(panel.innerHTML.includes(name),name);
 assert.ok(!panel.innerHTML.includes('data-inspector-design'));
 assert.ok(panel.innerHTML.includes('data-path="decorations.0.text"'));
 console.log('Панель оформления настраивает выбранный текстовый объект.');
+
+assert.ok(!panel.innerHTML.includes(':visuals"'));
+assert.ok(panel.innerHTML.indexOf('data-add-visual="arrow"')<panel.innerHTML.indexOf('Свойства объекта'));
+assert.ok(panel.innerHTML.includes('viewBox="0 0 24 24"'));
+selected.decorations[0].type='arrow';
+vm.runInContext('renderInspector()',context);
+assert.ok(panel.innerHTML.includes('data-rotate-object="90"'));
+assert.ok(panel.innerHTML.includes('data-reset-rotation'));
+console.log('Фигуры вложены в добавление элементов, палитра использует пиктограммы, поворот доступен в свойствах.');

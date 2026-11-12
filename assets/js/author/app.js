@@ -30,6 +30,16 @@ function inspectorSection(n,key,title,content,defaultOpen=false){
  return '<details class="inspector-section" data-inspector-section="'+h(stateKey)+'" '+(open?'open':'')+'>'+
   '<summary>'+h(title)+'</summary><div class="inspector-section-body">'+content+'</div></details>';
 }
+function openElementTools(){
+ const n=node();if(!n)return;
+ inspectorSections.set(n.id+':add',true);
+ renderInspector();
+ if(innerWidth<=1160)document.body.classList.add('inspector-open');
+ const section=Array.from($('inspector-content').querySelectorAll('[data-inspector-section]'))
+  .find(item=>item.dataset.inspectorSection===n.id+':add');
+ section?.scrollIntoView({block:'nearest'});
+ section?.querySelector('summary')?.focus({preventScroll:true});
+}
 function renderInspector(){
  const n=node(),panel=$('inspector-content');
  $('selected-id').textContent=n?.id||'';
@@ -62,31 +72,42 @@ function renderInspector(){
   if(screen&&n.background)media+='<button data-crop-screen class="full">Обрезать / вырезать окно</button>';
  }
  if(media)out+=section('media',n.type==='video'?'Видеоматериал':'Скриншот',media,!n.background&&!n.src);
- if(screen){
-  const tools=[
-   ['text','Поле ввода','Сотрудник вводит текст'],
-   ['select','Выпадающий список','Выбор из списка значений'],
-   ['checkbox','Галочка','Поставить или снять отметку'],
-   ['radio','Переключатели','Выбрать один вариант'],
-   ['jump','Переход','Открыть другой шаг без проверки полей'],
-   ['submit','Проверка и продолжение','Проверить поля и перейти дальше']
-  ];
-  out+=section('add','Добавить элемент',
-   '<p class="small">Выберите инструмент, затем обведите его область на скриншоте.</p>'+
-   '<div class="inspector-tools">'+tools.map(([key,label,description])=>
-    '<button type="button" data-inspector-tool="'+key+'" '+(!n.background&&['jump','submit'].includes(key)?'disabled':'')+'><strong>'+label+'</strong><small>'+description+'</small></button>').join('')+'</div>',true);
-  if(n.type==='form'&&!selectedVisual){
-   const fields='<label>Выбранное поле<select data-inspector-field>'+
-    n.fields.map(f=>'<option value="'+h(f.id)+'" '+(ScenaAreas.currentField(n)?.id===f.id?'selected':'')+'>'+h(f.label)+'</option>').join('')+
-    '</select></label>'+ScenaFieldUI.html(p,n,{input,checkbox,rectFields});
-   out+=section('field','Свойства поля',fields,true);
-  }
- }
  if(['form','click','choice'].includes(n.type)){
-  const items=[['text','Текст'],['rectangle','Прямоугольник'],['ellipse','Круг / овал'],['triangle','Треугольник'],['arrow','Стрелка'],['line','Линия']];
-  const tools='<p class="small">Выберите объект и обведите его место на скриншоте. Затем потяните за края, чтобы изменить размер.</p>'+
-   '<div class="inspector-tools visual-tool-grid">'+items.map(([key,title])=>'<button data-add-visual="'+key+'" '+(!n.background?'disabled':'')+'>'+title+'</button>').join('')+'</div>';
-  out+=section('visuals','Фигуры и текст',tools);
+  const icons={
+   text:'<path d="M5 5h14M12 5v14M8 19h8"/>',
+   input:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9v6M10 9h7"/>',
+   select:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m14 10 3 3 3-3M6 10h4"/>',
+   checkbox:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8 12 3 3 5-6"/>',
+   radio:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>',
+   jump:'<path d="M10 5H4v14h6M10 12h11m-5-5 5 5-5 5"/>',
+   submit:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m8 12 3 3 5-6"/>',
+   rectangle:'<rect x="3" y="5" width="18" height="14" rx="1"/>',
+   ellipse:'<ellipse cx="12" cy="12" rx="9" ry="7"/>',
+   triangle:'<path d="m12 3 10 17H2Z"/>',
+   arrow:'<path d="M3 12h17m-6-6 6 6-6 6"/>',
+   line:'<path d="m4 19 16-14"/>'
+  };
+  const toolButton=(key,label,attribute,icon,disabled=false)=>
+   '<button type="button" class="tool-tile" '+attribute+'="'+key+'" '+(disabled?'disabled':'')+' title="'+h(label)+'">'+
+   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icons[icon||key]+'</svg><span>'+h(label)+'</span></button>';
+  let tools='<p class="tool-instruction">Выберите инструмент и обведите место на скриншоте.</p>';
+  if(screen){
+   tools+='<div class="tool-group-label">Ввод и действия</div><div class="tool-palette interaction-palette">'+
+    [['text','Поле ввода','input'],['select','Список'],['checkbox','Галочка'],['radio','Переключатели'],['jump','Переход'],['submit','Проверить']].map(([key,label,icon])=>
+     toolButton(key,label,'data-inspector-tool',icon,!n.background&&['jump','submit'].includes(key))).join('')+'</div>';
+  }
+  tools+='<div class="tool-group-label">Надпись</div><div class="tool-palette text-palette">'+
+   toolButton('text','Текстовый блок','data-add-visual','text',!n.background)+'</div>'+
+   '<div class="tool-group-label">Фигуры</div><div class="tool-palette shape-palette">'+
+   [['rectangle','Прямоугольник'],['ellipse','Овал'],['triangle','Треугольник'],['arrow','Стрелка'],['line','Линия']].map(([key,label])=>
+    toolButton(key,label,'data-add-visual',key,!n.background)).join('')+'</div>';
+  out+=section('add','Добавить элемент',tools,true);
+ }
+ if(n.type==='form'&&!selectedVisual){
+  const fields='<label>Выбранное поле<select data-inspector-field>'+
+   n.fields.map(f=>'<option value="'+h(f.id)+'" '+(ScenaAreas.currentField(n)?.id===f.id?'selected':'')+'>'+h(f.label)+'</option>').join('')+
+   '</select></label>'+ScenaFieldUI.html(p,n,{input,checkbox,rectFields});
+  out+=section('field','Свойства поля',fields,true);
  }
  if(selectedVisual){
   const i=n.decorations.indexOf(selectedVisual),base='decorations.'+i+'.';
@@ -183,7 +204,9 @@ function renderInspector(){
      '<option value="'+key+'" '+(v.align===key?'selected':'')+'>'+title+'</option>').join('')+'</select></label>';
   }else{
    design+=input('Толщина обводки',base+'strokeWidth',v.strokeWidth??2,'number')+
-    input('Поворот, °',base+'rotation',v.rotation||0,'number');
+    input('Поворот, °',base+'rotation',v.rotation||0,'number')+
+    '<div class="rotation-actions"><button data-rotate-object="-90" title="Повернуть влево на 90°">↶ 90°</button><button data-rotate-object="90" title="Повернуть вправо на 90°">↷ 90°</button><button data-reset-rotation>Сбросить</button></div>'+
+    '<p class="small">Или тяните круглую ручку над выделенной фигурой. Shift — шаг 15°.</p>';
   }
   if(v.type!=='line')design+=checkbox('Без заливки',base+'noFill',v.noFill!==false)+
    (v.noFill===false?input('Цвет заливки',base+'fill',v.fill||'#e7f1fb','color'):'');
@@ -223,7 +246,7 @@ function bindDrawing(){const wrap=$('screen-wrap');let start=null,draft=null;
  const names={text:'Текст',rectangle:'Прямоугольник',ellipse:'Круг / овал',triangle:'Треугольник',arrow:'Стрелка',line:'Линия'};
  (n.decorations||=[]).push({id:M.uid('visual'),type,label:names[type],text:type==='text'?'Введите текст':'',rect:r,color:'#005ca9',fill:'#e7f1fb',noFill:type==='text'||type==='line',strokeWidth:2,autoFont:true,font:'Arial',fontSize:24});
 }else if(tool.kind==='new-jump'){(n.jumps||=[]).push({id:M.uid('jump'),label:'Переход',next:'',rect:r});p.settings.flow='branching';}else if(tool.kind==='jump')n.jumps[tool.index].rect=r;else if(tool.kind==='new-field'){if(n.type==='click'){n.type='form';n.fields=[];n.button='Далее';if(n.error==='Нажмите на нужную область.')n.error='Проверьте заполнение полей.';if(n.rect)n.submitRect=n.rect;delete n.rect;}const f=M.field();f.rect=r;f.kind=tool.fieldKind||'text';if(f.kind==='checkbox'){f.label='Галочка';f.expectedChecked=true;}if(['select','radio'].includes(f.kind)){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';f.label=f.kind==='select'?'Список':'Переключатели';}n.fields.push(f);}else if(tool.kind==='field')n.fields[tool.index].rect=r;else if(tool.kind==='submit')n.submitRect=r;else if(tool.kind==='click')n.rect=r;else if(tool.kind==='option')n.options[tool.index].rect=r;});drawing=null;if(tool.kind==='new-visual'){
- inspectorSections.set(n.id+':visuals',false);inspectorSections.set(n.id+':visual-properties',true);inspectorSections.set(n.id+':design',true);
+ inspectorSections.set(n.id+':add',false);inspectorSections.set(n.id+':visual-properties',true);inspectorSections.set(n.id+':design',true);
 }if(['new-jump','new-field'].includes(tool.kind))inspectorSections.set(n.id+':add',false);if(tool.kind==='new-jump'){inspectorSections.set(n.id+':field',false);inspectorSections.set(n.id+':jumps',true);inspectorSections.set(n.id+':jump-'+n.jumps.at(-1).id,true);}if(tool.kind==='new-field')inspectorSections.set(n.id+':field',true);render();if(tool.kind==='new-visual')ScenaAreas.pickVisual(n.decorations.at(-1).id);if(tool.kind==='new-field')ScenaAreas.pickField(n.fields.at(-1).id);notice(tool.kind==='new-visual'?'Объект добавлен. Текст и оформление можно изменить справа.':tool.kind==='new-jump'?'Область сохранена. Выберите целевой шаг справа.':'Область сохранена. Настройте проверку шага.');if((n.type==='form'||tool.kind==='new-jump')&&innerWidth<=1160)document.body.classList.add('inspector-open');};wrap.onpointercancel=()=>{start=null;draft?.remove();draft=null;};}
 function loadCropImage(path){
  return new Promise((resolve,reject)=>{
@@ -322,6 +345,11 @@ $('inspector-content').addEventListener('click',e=>{const b=e.target.closest('bu
   if((n.decorations?.length||0)>=50){notice('Доступно до 50 фигур и текстовых блоков.');return;}
   setDrawing({kind:'new-visual',visualType:d.addVisual});return;
  }
+ if('rotateObject'in d||'resetRotation'in d){
+  const visual=ScenaAreas.currentVisual(n);if(!visual)return;
+  mutate(()=>visual.rotation='resetRotation'in d?0:((Number(visual.rotation)||0)+Number(d.rotateObject)+360)%360);
+  render();return;
+ }
  if('deleteVisual'in d){mutate(()=>n.decorations.splice(Number(d.deleteVisual),1));render();return;}
  if(d.inspectorTool){
   const tool=d.inspectorTool;
@@ -375,7 +403,7 @@ function duplicateStep(id){const n=p.steps.find(n=>n.id===id);if(!n)return;const
 let renamingStep=null;
 function renameStep(id){const n=p.steps.find(s=>s.id===id);if(!n)return;renamingStep=id;$('step-rename-title').value=n.title;$('step-rename-dialog').showModal();$('step-rename-title').focus();$('step-rename-title').select();}
 $('step-rename-cancel').onclick=()=>$('step-rename-dialog').close();$('step-rename-form').onsubmit=e=>{e.preventDefault();const value=$('step-rename-title').value.trim(),n=p.steps.find(s=>s.id===renamingStep);if(!value||!n)return;mutate(()=>n.title=value);$('step-rename-dialog').close();render();};
-ScenaAreas.init({node,project:()=>p,editor:renderEditor,inspector:renderInspector,render,notice,mutate,checkpoint,changed,draw:setDrawing,drawing:()=>drawing,cancel:()=>{drawing=null;}});
+ScenaAreas.init({tools:openElementTools,node,project:()=>p,editor:renderEditor,inspector:renderInspector,render,notice,mutate,checkpoint,changed,draw:setDrawing,drawing:()=>drawing,cancel:()=>{drawing=null;}});
 ScenaCourseUI.init({project:()=>p,url,mutate,changed,render,notice,activate,flush,download,preview,export:()=>{$('export-course').click();}});
 ScenaMap.init({project:()=>p,selected:()=>selected,url,mutate,checkpoint,changed,select,notice,render});
 ScenaOutline.init({project:()=>p,selected:()=>selected,group:()=>selectedGroup,setGroup:id=>{selectedGroup=id;},url,select,mutate,checkpoint,changed,notice,render,add:after=>openAdd(after),confirm:confirmAction,remove:removeStep,rename:renameStep,duplicate:duplicateStep,afterRemove,arrange:()=>ScenaMap.arrange()});

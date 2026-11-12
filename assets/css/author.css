@@ -59,3 +59,31 @@
 .canvas-surface>.visual-zone.area-selected{background:transparent;border:1px dashed #005ca9}
 .canvas-surface>.visual-zone>span{display:none}
 .canvas-surface>.visual-zone.area-selected>span{display:block;position:absolute;left:0;top:-21px;background:#005ca9;color:white;padding:1px 5px;font-size:10px;white-space:nowrap}
+/* Unified insert palette: pictograms, short labels, and no separate shapes panel. */
+.tool-instruction{font-size:11px;line-height:1.5;color:#687d92;margin:0 0 12px}
+.tool-group-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#708298;margin:17px 0 8px}
+.tool-palette{display:grid;gap:5px}
+.interaction-palette{grid-template-columns:1fr 1fr}
+.text-palette{grid-template-columns:1fr}
+.shape-palette{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tool-palette .tool-tile{display:flex;align-items:center;justify-content:flex-start;gap:9px;min-width:0;padding:9px 7px;border:1px solid transparent;background:transparent;border-radius:5px;text-align:left;color:#35516c;line-height:1.3;font-size:11px}
+.tool-palette .tool-tile svg{display:block;width:24px;height:24px;flex-shrink:0;color:#386688}
+.shape-palette .tool-tile{flex-direction:column;justify-content:center;gap:7px;padding:10px 2px;min-height:66px;text-align:center;font-size:10px;overflow-wrap:anywhere}
+.shape-palette .tool-tile svg{width:29px;height:29px}
+.tool-palette .tool-tile:hover:not(:disabled){background:#edf5fc;border-color:#b7cfe5;color:#005ca9}
+.tool-palette .tool-tile:focus-visible{outline:2px solid #005ca9;outline-offset:-2px}
+.tool-palette .tool-tile:disabled{opacity:.4;cursor:default}
+.rotation-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.rotation-actions button{padding:7px 3px;font-size:11px;min-width:0}
+.canvas-surface{overflow:visible}
+.canvas-viewport{padding:36px 16px}
+.visual-zone{transform-origin:center center}
+.canvas-surface>.visual-zone.area-selected>span{display:none}
+.rotate-handle{position:absolute;left:50%;top:-33px;transform:translateX(-50%);width:23px;height:23px;border:1px solid #005ca9;border-radius:50%;background:#fff;color:#005ca9;font:18px/21px Arial,sans-serif;text-align:center;cursor:grab;z-index:8;box-shadow:0 1px 4px #173b6226;touch-action:none}
+.rotate-handle:before{content:'';position:absolute;left:50%;top:22px;width:1px;height:10px;background:#005ca9;pointer-events:none}
+.rotate-handle:active{cursor:grabbing}
+.interaction-palette .tool-tile{flex-direction:column;justify-content:center;text-align:center;gap:6px;min-height:64px}
+.shape-palette{grid-template-columns:repeat(5,minmax(0,1fr))}
+.shape-palette .tool-tile{min-height:43px;padding:8px 2px}
+.shape-palette .tool-tile span{display:none}
+.shape-palette .tool-tile svg{width:26px;height:26px}
