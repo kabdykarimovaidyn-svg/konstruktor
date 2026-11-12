@@ -125,6 +125,9 @@ function renderInspector(){
   out+=section('selected-jump','Свойства перехода',
    input('Название области','jumps.'+i+'.label',selectedJump.label)+
    target('Открыть шаг','jumps.'+i+'.next',selectedJump.next)+
+   (n.type==='form'?checkbox('Проверять задание перед переходом','jumps.'+i+'.checkBeforeJump',
+    selectedJump.checkBeforeJump??n.fields.some(f=>f.kind==='selection'&&f.selectionRequired===true))+
+    '<p class="small">Проверка обязательного выбора включается автоматически. Выключите для вкладки, которую можно открыть во время выполнения задания.</p>':'')+
    '<button data-redraw-jump="'+i+'" class="full">Обвести область заново</button>'+
    '<button data-remove-jump="'+i+'" class="full danger">Удалить переход</button>',true);
  }

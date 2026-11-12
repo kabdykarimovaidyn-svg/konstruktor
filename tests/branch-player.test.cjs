@@ -110,3 +110,33 @@ markButton.onclick();
 all('form')[0].onsubmit({preventDefault(){}});
 assert.equal(selectionPlayer.getState().done,true);
 console.log('Выбор области: без перехода и ошибок, повторное снятие, восстановление между экранами и необязательная проверка.');
+// A required choice must also guard a hotspot, including a direct completion target.
+selectionCourse.steps[0].jumps.push({id:'finish',label:'Готово',next:'end',rect:{x:75,y:80,w:20,h:10}});
+const guardedSelection=window.ScenaPlayer.run(selectionCourse,()=>bridge);
+click('Готово');
+assert.equal(guardedSelection.getState().step,'main');
+assert.equal(guardedSelection.getState().errors,1);
+assert.ok(nodes.feedback.textContent.includes('Строка клиента'));
+all('button').find(e=>e.className==='screen-selection').onclick();
+click('Заказы');
+assert.equal(guardedSelection.getState().step,'orders');
+click('Назад');
+assert.equal(all('button').find(e=>e.className==='screen-selection')['data-selected'],'true');
+click('Готово');
+assert.equal(guardedSelection.getState().step,'end');
+assert.equal(guardedSelection.getState().done,true);
+// A tab may explicitly remain available before selecting the required row.
+selectionCourse.steps[0].jumps[0].checkBeforeJump=false;
+const freelyNavigate=window.ScenaPlayer.run(selectionCourse,()=>bridge);
+click('Заказы');
+assert.equal(freelyNavigate.getState().step,'orders');
+assert.equal(freelyNavigate.getState().errors,0);
+click('Назад');
+click('Готово');
+assert.equal(freelyNavigate.getState().step,'main');
+// Requiredness removed: old free navigation continues to work.
+selectionCourse.steps[0].fields[0].selectionRequired=false;
+const optionalSelection=window.ScenaPlayer.run(selectionCourse,()=>bridge);
+click('Готово');
+assert.equal(optionalSelection.getState().done,true);
+console.log('Обязательный выбор блокирует область перехода; после выбора открывается её цель. Свободные вкладки сохраняются.');
