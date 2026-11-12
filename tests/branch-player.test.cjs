@@ -83,3 +83,30 @@ all('input')[0].value='wrong';
 all('form')[0].onsubmit({preventDefault(){}});
 assert.equal(strictClickPlayer.getState().errors,2);
 console.log('Свободные клики не штрафуются при отключённой настройке. Проверка неверного ввода сохраняется.');
+const selectionCourse={id:'selection',title:'Выбор области',start:'main',steps:[
+ {id:'main',type:'form',background:'main.png',fields:[{id:'row',kind:'selection',label:'Строка клиента',rule:'exact',rect:{x:10,y:20,w:70,h:8}}],next:'end',jumps:[{id:'tab',label:'Заказы',next:'orders',rect:{x:5,y:5,w:20,h:8}}]},
+ {id:'orders',type:'click',background:'orders.png',jumps:[{id:'back',label:'Назад',next:'main',rect:{x:5,y:5,w:20,h:8}}]},
+ {id:'end',type:'end'}
+]};
+assert.equal(ScenaSCORM.validate(selectionCourse),true);
+const selectionPlayer=window.ScenaPlayer.run(selectionCourse,()=>bridge);
+let markButton=all('button').find(e=>e.className==='screen-selection');
+assert.equal(markButton['data-selected'],'false');
+markButton.onclick();
+assert.equal(markButton['data-selected'],'true');
+assert.equal(selectionPlayer.getState().step,'main');
+assert.equal(selectionPlayer.getState().errors,0);
+click('Заказы');click('Назад');
+markButton=all('button').find(e=>e.className==='screen-selection');
+assert.equal(markButton['data-selected'],'true');
+markButton.onclick();
+assert.equal(markButton['data-selected'],'false');
+assert.equal(selectionPlayer.getState().errors,0);
+selectionCourse.steps[0].fields[0].selectionRequired=true;
+all('form')[0].onsubmit({preventDefault(){}});
+assert.equal(selectionPlayer.getState().step,'main');
+assert.equal(selectionPlayer.getState().errors,1);
+markButton.onclick();
+all('form')[0].onsubmit({preventDefault(){}});
+assert.equal(selectionPlayer.getState().done,true);
+console.log('Выбор области: без перехода и ошибок, повторное снятие, восстановление между экранами и необязательная проверка.');
