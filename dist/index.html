@@ -26,6 +26,31 @@
 .author-business-center p{color:#64778a;white-space:pre-wrap;line-height:1.7}
 .author-business-center span{display:inline-block;margin-top:15px;background:#005ca9;color:white;padding:12px 55px;border-radius:3px}
 .author-business-cover footer{border-top:1px solid #dde5ed;padding-top:15px;font-size:10px;letter-spacing:.06em;color:#73869a;text-align:center}
+
+/* Grouped property panel. */
+#inspector-content .inspector-section{margin:0 0 9px;border:1px solid #cfd9e3;border-radius:5px;background:#fff;overflow:hidden}
+#inspector-content .inspector-section>summary{list-style:none;position:relative;cursor:pointer;padding:12px 34px 12px 13px;background:#e5ebf1;font-size:13px;line-height:1.4;font-weight:700;color:#243b53;overflow-wrap:anywhere;user-select:none}
+#inspector-content .inspector-section>summary::-webkit-details-marker{display:none}
+#inspector-content .inspector-section>summary:after{content:'›';position:absolute;right:14px;top:9px;font-size:21px;font-weight:400;transition:transform .15s}
+#inspector-content .inspector-section[open]>summary{border-bottom:1px solid #cfd9e3}
+#inspector-content .inspector-section[open]>summary:after{transform:rotate(90deg)}
+#inspector-content .inspector-section>summary:focus-visible{outline:2px solid #005ca9;outline-offset:-3px}
+.inspector-section-body{padding:13px}
+.inspector-section-body>label:first-child{margin-top:0}
+.inspector-section-body>.small:first-child{margin-top:0}
+.inspector-section-body .block{margin:0;padding:0;border:0;background:none}
+#inspector-content .inspector-section .inspector-section>summary{background:#f0f3f7;font-size:12px;padding:10px 30px 10px 11px}
+#inspector-content .inspector-section .inspector-section-body{padding:11px}
+.inspector-tools{display:grid;gap:7px}
+.inspector-tools button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:10px 11px;gap:3px;border-color:#d1dce7;white-space:normal}
+.inspector-tools button strong{font-size:12px;font-weight:600;color:#005ca9}
+.inspector-tools button small{font-size:11px;line-height:1.4;color:#63788d}
+.inspector-tools button:hover:not(:disabled){border-color:#005ca9;background:#f1f7fd}
+.inspector-tools button:disabled{opacity:.5;cursor:default}
+.inspector-section-body>.full{margin-top:7px}
+.inspector-section-body .advanced{background:#f6f8fa;border:1px solid #dce3eb;border-radius:4px;margin:10px 0;padding:8px}
+.inspector-section-body .advanced>summary{font-weight:600;color:#455e76;cursor:pointer}
+.inspector-section-body .advanced[open]>summary{margin-bottom:10px}
 </style></head><body>
 <header class="top">
 <button class="brand" id="go-projects" title="Открыть список проектов"><b>▤</b><span>Конструктор курсов</span></button>
@@ -41,7 +66,7 @@
 <section id="view-map" class="view hidden"><div class="map-toolbar"><button id="arrange">Упорядочить</button><button id="fit-map">Вся карта</button><button id="zoom-out" aria-label="Уменьшить карту">−</button><span id="zoom-value">100%</span><button id="zoom-in" aria-label="Увеличить карту">＋</button><input id="map-search" placeholder="Найти шаг…" aria-label="Поиск шага на карте"></div><div id="map-help" class="map-help">Тяните карточки за заголовок. Для связи потяните выход к входу другой карточки или нажмите их по очереди.</div><div id="map-scroll"><div id="map-size"><div id="map-plane"><svg id="map-lines" aria-label="Связи между шагами"></svg><div id="map-groups"></div><div id="map-nodes"></div></div></div></div><div id="map-overview" aria-label="Обзор сценариев"></div></section>
 <section id="view-media" class="view hidden"><div class="section-heading"><div><span class="caption">ФАЙЛЫ ЭТОГО КУРСА</span><h1>Все файлы</h1></div><button id="library-upload" class="primary">Добавить в файлы</button></div><p class="muted">MP4 / WebM для видео; PNG / JPEG / WebP для скриншотов. До 250 МБ медиа на проект. Файлы остаются на вашем устройстве.</p><div id="media-grid"></div></section>
 <section id="view-settings" class="view hidden"><div class="section-heading"><div><span class="caption">ПАРАМЕТРЫ ПРОХОЖДЕНИЯ</span><h1>Настройки курса</h1></div></div><div class="settings-card"><h2>Оформление курса</h2><p class="small">Единый стиль начальной страницы, заданий, кнопок и завершения.</p><label>Основной цвет<input type="color" id="theme-color" value="#005ca9"></label><label>Цвет заголовков<input type="color" id="theme-title-color" value="#21384f"></label><label>Цвет текста<input type="color" id="theme-text-color" value="#21384f"></label><label>Шрифт<select id="theme-font"><option>Arial</option><option>Verdana</option><option>Georgia</option><option>Tahoma</option><option>Trebuchet MS</option></select></label><img id="theme-logo-preview" alt="Логотип курса" hidden><button id="choose-logo">Загрузить логотип</button><button id="remove-logo">Убрать логотип</button></div><div class="settings-card"><label>Порядок прохождения<select id="course-flow"><option value="sequence">По порядку — как в списке слева</option><option value="branching">По связям — с разными ветками</option></select></label><p class="small">В обычном курсе шаги идут сверху вниз. Связи и ветвления нужны, когда ответы ведут к разным продолжениям.</p><label>С какого шага начать<select id="start-step"></select></label><label>Режим прохождения<select id="course-mode"><option value="learn">Обучение — пояснять ошибки</option><option value="test">Проверка — не раскрывать правильный ответ</option></select></label><label>Штраф за ошибку, баллов из 100<input id="course-penalty" type="number" min="0" max="100"></label><p class="muted">Курс считается пройденным на шаге «Завершение курса». Итоговая оценка: 100 минус штраф за каждую ошибку, минимум 0. Статус LMS — completed.</p><p class="muted">SCORM 1.2 · видео и скриншоты внутри ZIP · восстановление шага и позиции видео. Совместимость с Mirapolis нужно подтвердить тестовым импортом.</p><button id="validate-course" class="primary">Проверить курс</button><div id="validation-results"></div></div></section>
-</main><aside class="inspector"><button id="hide-inspector">Закрыть настройки</button><div class="side-title"><strong>Действия на шаге</strong><span id="selected-id" class="small"></span></div><div id="inspector-content"></div></aside></div>
+</main><aside class="inspector"><button id="hide-inspector">Закрыть настройки</button><div class="side-title"><strong>Инструменты и свойства</strong><span id="selected-id" class="small"></span></div><div id="inspector-content"></div></aside></div>
 <input type="file" id="logo-input" hidden accept="image/png,image/jpeg,image/webp"><input type="file" id="asset-input" hidden multiple accept="video/mp4,video/webm,image/png,image/jpeg,image/webp"><input type="file" id="project-input" hidden accept=".json,.scena,application/json">
 <div id="toast" role="status"></div><dialog id="preview-dialog"><div class="dialog-bar"><strong>Предпросмотр курса</strong><span class="small">Результаты не сохраняются в LMS</span><button id="close-preview">Закрыть</button></div><iframe id="preview-frame" title="Проигрыватель курса" allowfullscreen allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-forms"></iframe></dialog>
 <dialog id="export-dialog"><div class="dialog-bar"><strong>Экспорт SCORM 1.2</strong><button id="close-export">Закрыть</button></div><div class="dialog-body"><div id="export-results"></div><p class="muted">Пакет содержит только файлы, которые используются в курсе. Проект редактирования скачивается отдельно.</p><button id="build-scorm" class="primary">Собрать и скачать ZIP</button><p id="export-status" role="status"></p></div></dialog>
@@ -683,7 +708,7 @@ root.ScenaProjects={init,open,refresh,create};
 (function(root){'use strict';let app,selected=new Set(),clipboard=[],zoom=1,owner='';const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function entries(n){const a=[];if(n.type==='form')n.fields.forEach((f,i)=>{if(f.rect)a.push({key:'f:'+f.id,rect:f.rect,label:f.label,field:f,index:i});});if(n.type==='click'&&n.rect)a.push({key:'click',rect:n.rect,label:n.label||'Кнопка'});if(n.submitRect)a.push({key:'submit',rect:n.submitRect,label:'Далее'});n.options?.forEach((o,i)=>{if(o.rect)a.push({key:'o:'+o.id,rect:o.rect,label:o.label,option:o,index:i});});n.jumps?.forEach(j=>{if(j.rect)a.push({key:'j:'+j.id,rect:j.rect,label:j.label,jump:j});});return a;}
 function sync(n){if(owner!==n.id){owner=n.id;selected.clear();}const valid=new Set(entries(n).map(e=>e.key));selected=new Set([...selected].filter(k=>valid.has(k)));}
-function html(n,media){sync(n);return `<div class="canvas-tools canvas-type-${n.type}"><label>Добавить элемент<select id="area-kind"><option value="text">Поле ввода</option><option value="select">Выпадающий список</option><option value="checkbox">Галочка</option><option value="radio">Переключатели</option></select></label><button data-area-add>＋ Нарисовать</button><button data-area-submit>${n.type==='choice'?'＋ Кнопка ответа':'Кнопка «Далее»'}</button><button data-area-copy ${selected.size?'':'disabled'}>Копировать</button><button data-area-paste ${clipboard.length?'':'disabled'}>Вставить</button><button data-area-delete ${selected.size?'':'disabled'}>Удалить</button><label>Масштаб<select id="canvas-zoom">${[.5,.75,1,1.25,1.5,2].map(z=>`<option value="${z}" ${zoom===z?'selected':''}>${z*100}%</option>`).join('')}</select></label><button data-area-cancel>Отменить выделение</button></div><p class="small canvas-help">${app.drawing()?'Обведите новую область мышью. Escape — отменить. ':'Выделите область. '}Shift — несколько; Ctrl/Cmd+C, V — копирование; стрелки — перемещение; Delete — удаление. Потяните края для изменения размера.</p><div class="canvas-viewport" tabindex="0" aria-label="Рабочая область скриншота"><div id="screen-wrap" class="screen-wrap canvas-surface ${app.drawing()?'drawing':''}" style="width:${zoom*100}%">${media}${entries(n).map(e=>`<button type="button" class="zone ${selected.has(e.key)?'area-selected':''}" data-area-key="${h(e.key)}" style="left:${e.rect.x}%;top:${e.rect.y}%;width:${e.rect.w}%;height:${e.rect.h}%" aria-label="Область: ${h(e.label)}"><span>${h(e.label)}</span>${selected.has(e.key)&&selected.size===1?['nw','n','ne','e','se','s','sw','w'].map(d=>`<i data-resize="${d}" class="resize-handle handle-${d}"></i>`).join(''):''}</button>`).join('')}</div></div><div class="canvas-elements">${n.fields?.map(f=>`<button data-select-field="${h(f.id)}" class="${selected.has('f:'+f.id)?'active':''}">${h(f.label)} · ${{text:'Текст',select:'Список',checkbox:'Галочка',radio:'Переключатели'}[f.kind||'text']}</button>`).join('')||''}</div>`;}
+function html(n,media){sync(n);return `<div class="canvas-tools canvas-type-${n.type}"><label>Добавить элемент<select id="area-kind"><option value="text">Поле ввода</option><option value="select">Выпадающий список</option><option value="checkbox">Галочка</option><option value="radio">Переключатели</option></select></label><button data-area-add>Нарисовать область</button><button data-area-submit>${n.type==='choice'?'Кнопка ответа':'Проверка и продолжение'}</button><button data-area-copy ${selected.size?'':'disabled'}>Копировать</button><button data-area-paste ${clipboard.length?'':'disabled'}>Вставить</button><button data-area-delete ${selected.size?'':'disabled'}>Удалить</button><label>Масштаб<select id="canvas-zoom">${[.5,.75,1,1.25,1.5,2].map(z=>`<option value="${z}" ${zoom===z?'selected':''}>${z*100}%</option>`).join('')}</select></label><button data-area-cancel>Отменить выделение</button></div><p class="small canvas-help">${app.drawing()?'Обведите новую область мышью. Escape — отменить. ':'Выделите область. '}Shift — несколько; Ctrl/Cmd+C, V — копирование; стрелки — перемещение; Delete — удаление. Потяните края для изменения размера.</p><div class="canvas-viewport" tabindex="0" aria-label="Рабочая область скриншота"><div id="screen-wrap" class="screen-wrap canvas-surface ${app.drawing()?'drawing':''}" style="width:${zoom*100}%">${media}${entries(n).map(e=>`<button type="button" class="zone ${selected.has(e.key)?'area-selected':''}" data-area-key="${h(e.key)}" style="left:${e.rect.x}%;top:${e.rect.y}%;width:${e.rect.w}%;height:${e.rect.h}%" aria-label="Область: ${h(e.label)}"><span>${h(e.label)}</span>${selected.has(e.key)&&selected.size===1?['nw','n','ne','e','se','s','sw','w'].map(d=>`<i data-resize="${d}" class="resize-handle handle-${d}"></i>`).join(''):''}</button>`).join('')}</div></div><div class="canvas-elements">${n.fields?.map(f=>`<button data-select-field="${h(f.id)}" class="${selected.has('f:'+f.id)?'active':''}">${h(f.label)} · ${{text:'Текст',select:'Список',checkbox:'Галочка',radio:'Переключатели'}[f.kind||'text']}</button>`).join('')||''}</div>`;}
 function currentField(n){sync(n);return n.fields?.find(f=>selected.has('f:'+f.id))||n.fields?.[0];}
 function pickField(id,add=false){if(add){selected.has('f:'+id)?selected.delete('f:'+id):selected.add('f:'+id);}else selected=new Set(['f:'+id]);app.editor();app.inspector();}
 function copy(){const n=app.node();clipboard=entries(n).filter(e=>selected.has(e.key)).map(e=>e.field?{type:'field',value:structuredClone(e.field)}:e.jump?{type:'jump',value:structuredClone(e.jump)}:e.option?{type:'option',value:structuredClone(e.option)}:{type:e.key,value:{rect:structuredClone(e.rect),label:e.label}});app.notice('Скопировано областей: '+clipboard.length);}
@@ -895,38 +920,144 @@ function target(label,path,value,options={}){return `<label>${h(label)}<select d
 function rectFields(path,r){r=r||{x:20,y:20,w:30,h:10};return `<div class="rect-grid">${['x','y','w','h'].map((key,i)=>`<label>${['X, %','Y, %','Ш, %','В, %'][i]}<input type="number" min="0" max="100" step="0.1" data-path="${h(path+'.'+key)}" value="${Number(r[key]).toFixed(1)}"></label>`).join('')}</div>`;}
 function checkbox(label,path,value){return `<label><input type="checkbox" data-path="${h(path)}" ${value?'checked':''}>${h(label)}</label>`;}
 function renderList(){ScenaOutline.render();}
-function renderInspector(){const n=node();$('selected-id').textContent=n?.id||'';if(!n){$('inspector-content').innerHTML='<p class="muted">Добавьте или выберите шаг.</p>';return;}
- let out='<p class="inspector-explanation">'+h(M.descriptions[n.type])+'</p>'+input('Название шага','title',n.title)+`<label>Раздел курса<select data-path="group" ${n.type==='end'&&p.settings.flow==='sequence'?'disabled':''}>${p.groups.map(g=>`<option value="${h(g.id)}" ${g.id===n.group?'selected':''}>${h(g.title)}</option>`).join('')}</select></label>`+input('Название задания','taskTitle',n.taskTitle)+textarea('Задание для сотрудника','instruction',n.instruction);
- if(n.type==='video')out+=`<label>Видеофайл<select data-path="src">${assetOptions(n.src,true)}</select></label><button data-upload="video" class="full">Загрузить видео</button>`+target('После окончания видео','next',n.next)+'<p class="small">Чтобы добавить кнопки в конце видео, следующим шагом укажите «Вопрос с вариантами ответа».</p>';
- if(['form','click','choice'].includes(n.type))out+=`<label>Скриншот фона<select data-path="background">${assetOptions(n.background)}</select></label><button data-upload="image" class="full">${n.background?'Заменить этот скриншот':'Выбрать скриншот для этого шага'}</button>`;
- if(['form','click'].includes(n.type)&&n.background){
-  out+='<button data-crop-screen class="full">Обрезать скриншот / вырезать окно</button>';
-  for(const [i,j] of (n.jumps||[]).entries()){
-   const base='jumps.'+i+'.';
-   out+='<div class="block">'+input('Название перехода',base+'label',j.label)+
-    '<label>Перейти к шагу<select data-path="'+base+'next"><option value="">Не выбран</option>'+
-    p.steps.filter(t=>t.id!==n.id).map(t=>'<option value="'+h(t.id)+'" '+(j.next===t.id?'selected':'')+'>'+h(t.title)+'</option>').join('')+
-    '</select></label><button data-redraw-jump="'+i+'">Обвести заново</button> <button data-remove-jump="'+i+'">Удалить</button></div>';
+const inspectorSections=new Map();
+let inspectorSelectedField='';
+function inspectorSection(n,key,title,content,defaultOpen=false){
+ const stateKey=n.id+':'+key;
+ const open=inspectorSections.has(stateKey)?inspectorSections.get(stateKey):defaultOpen;
+ return '<details class="inspector-section" data-inspector-section="'+h(stateKey)+'" '+(open?'open':'')+'>'+
+  '<summary>'+h(title)+'</summary><div class="inspector-section-body">'+content+'</div></details>';
+}
+function renderInspector(){
+ const n=node(),panel=$('inspector-content');
+ $('selected-id').textContent=n?.id||'';
+ if(!n){panel.innerHTML='<p class="muted">Добавьте или выберите шаг.</p>';return;}
+ const section=(key,title,body,open=false)=>inspectorSection(n,key,title,body,open);
+ const screen=['form','click'].includes(n.type);
+ const selectedField=n.type==='form'?ScenaAreas.currentField(n):null;
+ const selectionKey=selectedField?n.id+':'+selectedField.id:'';
+ if(selectionKey&&selectionKey!==inspectorSelectedField)inspectorSections.set(n.id+':field',true);
+ inspectorSelectedField=selectionKey;
+ let out='<p class="inspector-explanation">'+h(M.descriptions[n.type])+'</p>';
+ const info=input('Название шага · видно автору','title',n.title)+
+  '<label>Раздел курса<select data-path="group" '+(n.type==='end'&&p.settings.flow==='sequence'?'disabled':'')+'>'+
+  p.groups.map(g=>'<option value="'+h(g.id)+'" '+(n.group===g.id?'selected':'')+'>'+h(g.title)+'</option>').join('')+'</select></label>';
+ out+=section('step','О шаге',info);
+ out+=section('task','Задание сотруднику',
+  input('Заголовок задания','taskTitle',n.taskTitle)+textarea('Текст задания','instruction',n.instruction));
+ let media='';
+ if(n.type==='video'){
+  media='<label>Видеофайл<select data-path="src">'+assetOptions(n.src,true)+'</select></label>'+
+   '<button data-upload="video" class="full">'+(n.src?'Заменить видео':'Загрузить видео')+'</button>';
+ }
+ if(['form','click','choice'].includes(n.type)){
+  media='<label>Скриншот фона<select data-path="background">'+assetOptions(n.background)+'</select></label>'+
+   '<button data-upload="image" class="full">'+(n.background?'Заменить скриншот':'Загрузить скриншот')+'</button>';
+  if(screen&&n.background)media+='<button data-crop-screen class="full">Обрезать / вырезать окно</button>';
+ }
+ if(media)out+=section('media',n.type==='video'?'Видеоматериал':'Скриншот',media,!n.background&&!n.src);
+ if(screen){
+  const tools=[
+   ['text','Поле ввода','Сотрудник вводит текст'],
+   ['select','Выпадающий список','Выбор из списка значений'],
+   ['checkbox','Галочка','Поставить или снять отметку'],
+   ['radio','Переключатели','Выбрать один вариант'],
+   ['jump','Переход','Открыть другой шаг без проверки полей'],
+   ['submit','Проверка и продолжение','Проверить поля и перейти дальше']
+  ];
+  out+=section('add','Добавить элемент',
+   '<p class="small">Выберите инструмент, затем обведите его область на скриншоте.</p>'+
+   '<div class="inspector-tools">'+tools.map(([key,label,description])=>
+    '<button type="button" data-inspector-tool="'+key+'" '+(!n.background&&['jump','submit'].includes(key)?'disabled':'')+'><strong>'+label+'</strong><small>'+description+'</small></button>').join('')+'</div>',true);
+  if(n.type==='form'){
+   const fields='<label>Выбранное поле<select data-inspector-field>'+
+    n.fields.map(f=>'<option value="'+h(f.id)+'" '+(ScenaAreas.currentField(n)?.id===f.id?'selected':'')+'>'+h(f.label)+'</option>').join('')+
+    '</select></label>'+ScenaFieldUI.html(p,n,{input,checkbox,rectFields});
+   out+=section('field','Свойства поля',fields,true);
   }
  }
- if(['form','click'].includes(n.type))out+=checkbox('Показывать кнопку «Далее» под экраном','showNext',n.showNext??!(n.jumps?.length||n.submitRect))+'<p class="small">Проверку заполненных полей можно назначить области «Далее» на скриншоте.</p>';
- if(['form','click'].includes(n.type))out+=`<label>Действие на экране<select data-screen-action><option value="click" ${n.type==='click'?'selected':''}>Нажать кнопку</option><option value="form" ${n.type==='form'?'selected':''}>Ввести данные в поля</option><option value="add-select">＋ Выпадающий список</option><option value="add-checkbox">＋ Галочка</option><option value="add-radio">＋ Переключатели</option><option value="add-jump">＋ Переход</option></select></label>`;
+ let content='';
+ if(n.type==='intro')content=textarea('Описание на обложке','body',n.body);
+ if(n.type==='message'){
+  if(n.template==='guide')content+='<p class="small">Каждая строка — «Название|Пояснение» для одного пункта инструкции.</p>';
+  content+=textarea('Текст страницы','body',n.body)+input('Подпись кнопки','button',n.button);
+ }
+ if(n.type==='end')content=textarea('Текст завершения','body',n.body);
+ if(content)out+=section('content',n.type==='intro'?'Содержание обложки':'Содержание страницы',content,true);
  if(n.type==='choice'){
-  out+=target('Показать ответы поверх последнего кадра видео','video',n.video,{videoOnly:true})+checkbox('Сначала выбрать вариант, затем «Далее»','selectBeforeContinue',n.selectBeforeContinue)+'<p class="small">Для выбора поверх видео отключите режим «сначала выбрать».</p>';
-  if(n.video)out+=`<label>Когда показать кнопки<select data-path="showMode"><option value="end" ${n.showMode!=='time'?'selected':''}>В конце видео</option><option value="time" ${n.showMode==='time'?'selected':''}>На указанной секунде · пауза</option></select></label>`+(n.showMode==='time'?input('Секунда появления','showAt',n.showAt||0,'number'):'')+'<p class="small">Положение кнопок изменяйте мышью на кадре видео. Полноэкранный режим включается кнопкой плеера.</p>';
-  n.options.forEach((o,i)=>{out+=`<div class="block"><div class="block-heading"><strong>Вариант ${i+1}</strong><button data-remove-option="${i}">Удалить</button></div>${input('Подпись кнопки','options.'+i+'.label',o.label)}${n.video?input('Цвет кнопки','options.'+i+'.color',o.color||'#005ca9','color')+input('Цвет текста','options.'+i+'.textColor',o.textColor||'#ffffff','color')+input('Размер шрифта','options.'+i+'.fontSize',o.fontSize||16,'number')+checkbox('Скругление','options.'+i+'.rounded',o.rounded!==false):''}${checkbox('Ошибка сразу, остаться на шаге','options.'+i+'.wrong',o.wrong)}${o.wrong?textarea('Пояснение ошибки','options.'+i+'.error',o.error):target('Переход к шагу','options.'+i+'.next',o.next)}${(n.background||n.video)?`<button data-draw-option="${i}" class="full">Выделить область кнопки</button>${o.rect?rectFields('options.'+i+'.rect',o.rect):''}`:''}</div>`;});out+='<button data-add-option class="full">＋ Добавить вариант</button><p class="small">Для отложенных последствий не отмечайте «Ошибка сразу». Ведите вариант в видео последствий, затем в разбор и возврат.</p>';
+  let options='';
+  n.options.forEach((o,i)=>{
+   const base='options.'+i+'.';
+   let body=input('Текст ответа',base+'label',o.label)+
+    checkbox('Засчитать ошибку сразу и остаться на шаге',base+'wrong',o.wrong)+
+    (o.wrong?textarea('Сообщение об ошибке',base+'error',o.error):target('Открыть шаг',base+'next',o.next));
+   if(n.background||n.video)body+='<button data-draw-option="'+i+'" class="full">Обвести кнопку на экране</button>';
+   if(o.rect)body+='<details class="advanced"><summary>Положение и размер</summary>'+rectFields(base+'rect',o.rect)+'</details>';
+   if(n.video)body+='<details class="advanced"><summary>Оформление кнопки</summary>'+
+    input('Цвет кнопки',base+'color',o.color||'#005ca9','color')+
+    input('Цвет текста',base+'textColor',o.textColor||'#ffffff','color')+
+    input('Размер шрифта',base+'fontSize',o.fontSize||16,'number')+
+    checkbox('Скругление',base+'rounded',o.rounded!==false)+'</details>';
+   body+='<button data-remove-option="'+i+'" class="full danger">Удалить ответ</button>';
+   options+=section('option-'+(o.id||i),'Ответ '+(i+1)+' · '+o.label,body);
+  });
+  options+='<button data-add-option class="full">Добавить ответ</button>'+
+   '<p class="small">Чтобы показать последствия решения, укажите шаг с видео. Ошибку можно засчитать позже через возврат к вопросу.</p>';
+  out+=section('answers','Ответы и переходы',options,true);
+  const video=target('Видео для последнего кадра','video',n.video,{videoOnly:true})+
+   checkbox('Выбрать ответ и подтвердить кнопкой «Далее»','selectBeforeContinue',n.selectBeforeContinue)+
+   (n.video?'<label>Когда показывать ответы<select data-path="showMode"><option value="end" '+(n.showMode!=='time'?'selected':'')+'>В конце видео</option><option value="time" '+(n.showMode==='time'?'selected':'')+'>На указанной секунде с паузой</option></select></label>'+
+    (n.showMode==='time'?input('Секунда появления','showAt',n.showAt||0,'number'):''):'');
+  out+=section('video-options','Ответы поверх видео',video);
  }
- if(n.type==='form'){
-  out+=ScenaFieldUI.html(p,n,{input,checkbox,rectFields})+input('Текст кнопки проверки','button',n.button)+textarea('Сообщение при ошибке','error',n.error)+target('После правильного ввода','next',n.next);
+ if(screen){
+  let transitions='';
+  for(const [i,j] of (n.jumps||[]).entries()){
+   transitions+=section('jump-'+j.id,j.label,
+    input('Название области','jumps.'+i+'.label',j.label)+
+    target('Открыть шаг','jumps.'+i+'.next',j.next)+
+    '<button data-redraw-jump="'+i+'" class="full">Обвести область заново</button>'+
+    '<button data-remove-jump="'+i+'" class="full danger">Удалить переход</button>');
+  }
+  if(!n.jumps?.length)transitions='<p class="small">Переходов пока нет. В разделе «Добавить элемент» выберите «Переход» и обведите кнопку или вкладку.</p>';
+  out+=section('jumps','Переходы по областям'+(n.jumps?.length?' · '+n.jumps.length:''),transitions);
+  let check=textarea('Сообщение при неверном действии','error',n.error);
+  if(n.type==='form'){
+   check=input('Подпись кнопки проверки','button',n.button)+check+
+    target('После правильного заполнения','next',n.next)+
+    '<button data-draw-submit class="full">Обвести кнопку проверки на скриншоте</button>';
+   if(n.submitRect)check+='<details class="advanced"><summary>Положение кнопки проверки</summary>'+rectFields('submitRect',n.submitRect)+'</details><button data-clear-submit class="full">Убрать область проверки</button>';
+  }else{
+   check=input('Название кнопки','label',n.label)+
+    '<button data-draw-click class="full">Обвести кнопку на скриншоте</button>'+check+
+    target('После нажатия','next',n.next);
+   if(n.rect)check+='<details class="advanced"><summary>Положение кнопки</summary>'+rectFields('rect',n.rect)+'</details>';
+  }
+  check+=checkbox('Показывать «Далее» под экраном','showNext',n.showNext??!(n.jumps?.length||n.submitRect));
+  out+=section('continue','Проверка и продолжение',check);
  }
- if(n.type==='click')out+=input('Название кнопки на скриншоте','label',n.label)+'<button data-draw-click class="full">Указать кнопку на скриншоте</button>'+(n.rect?'<details class="advanced"><summary>Точные координаты кнопки</summary>'+rectFields('rect',n.rect)+'</details>':'<p class="small">Кнопка ещё не выделена. Обведите её на скриншоте.</p>')+textarea('Сообщение при ошибке','error',n.error)+target('После правильного нажатия','next',n.next);
- if(n.type==='intro')out+=textarea('Описание курса','body',n.body)+target('После кнопки «Начать»','next',n.next)+'<p class="small">Логотип, название, шрифт и цвет меняются в настройках курса.</p>';
- if(n.type==='slide')out+=target('После слайда','next',n.next);
- if(n.type==='message'&&n.template==='guide')out+='<p class="small">Каждая строка — пункт инструкции в формате «Название|Пояснение». Страницу можно удалить обычным способом.</p>';
- if(n.type==='message')out+=textarea('Содержание / объяснение последствий','body',n.body)+input('Подпись кнопки','button',n.button)+target('Продолжить к шагу','next',n.next);
- if(n.type==='return')out+=target('Какой вопрос повторить','next',n.next,{choiceOnly:true})+checkbox('Учесть ветку как одну ошибку','penalty',n.penalty!==false)+'<p class="small">Сотрудник возвращается прямо к кнопкам. Вводное видео повторно не проигрывается. Варианты остаются доступны.</p>';
- if(n.type==='end')out+=textarea('Текст завершения','body',n.body);
- out+='<hr><button data-set-start class="full">Сделать стартовым шагом</button><button data-duplicate class="full">Дублировать шаг</button><button data-delete class="full danger">Удалить этот шаг</button>';$('inspector-content').innerHTML=out;}
+ let next='';
+ if(n.type==='video')next=target('После окончания видео','next',n.next);
+ if(n.type==='intro')next=target('После кнопки «Начать»','next',n.next);
+ if(n.type==='slide')next=target('После слайда','next',n.next);
+ if(n.type==='message')next=target('Открыть следующий шаг','next',n.next);
+ if(n.type==='return')next=target('Вернуться к вопросу','next',n.next,{choiceOnly:true})+
+  checkbox('Засчитать ветку как одну ошибку','penalty',n.penalty!==false);
+ if(next)out+=section('next','Переход к следующему шагу',next);
+ out+=section('design','Оформление',
+  '<p class="small">Логотип, шрифт и цвета задаются для всего курса.</p><button data-inspector-design class="full">Открыть оформление курса</button>');
+ out+=section('actions','Действия с шагом',
+  '<button data-set-start class="full">Сделать началом курса</button><button data-duplicate class="full">Создать копию шага</button><button data-delete class="full danger">Удалить шаг</button>');
+ panel.innerHTML=out;
+ panel.querySelectorAll('details').forEach((details,index)=>{
+  const key=details.dataset.inspectorSection||n.id+':advanced:'+
+   (details.querySelector('[data-path]')?.dataset.path||details.querySelector('summary')?.textContent||index);
+  if(!details.dataset.inspectorSection&&inspectorSections.has(key))details.open=inspectorSections.get(key);
+  details.addEventListener('toggle',()=>{
+   if(details.isConnected)inspectorSections.set(key,details.open);
+  });
+ });
+}
 function renderEditor(){const n=node();$('selected-type').textContent=n?M.types[n.type]:'';$('selected-title').textContent=n?.title||'Добавьте первый шаг';if(!n){$('editor-content').innerHTML='<div class="placeholder">Добавьте шаг в левой панели.</div>';return;}
  let content='<p class="step-description">'+h(M.descriptions[n.type])+'</p>';content+=n.instruction?`<div class="step-instruction"><h3>${h(n.taskTitle||'Работа в программе')}</h3><strong>Задание</strong><span>${h(n.instruction)}</span></div>`:'';
  if(n.type==='video')content+=n.src&&p.assets[n.src]?`<video class="editor-video" controls preload="metadata" src="${url(n.src)}"></video><p class="small">${h(p.assets[n.src].name)} · ${(p.assets[n.src].blob.size/1048576).toFixed(1)} МБ</p><button data-editor-upload="video">Заменить видео</button>`:'<div class="placeholder"><h2>Добавьте видео этой сцены</h2><p>MP4 или WebM. После просмотра можно перейти к выбору или следующему видео.</p><button data-editor-upload="video" class="primary">Загрузить видео</button></div>';
@@ -944,7 +1075,7 @@ function setDrawing(tool){if(tool.kind==='new-field'&&(node()?.fields?.length||0
 function bindDrawing(){const wrap=$('screen-wrap');let start=null,draft=null;
  wrap.onpointerdown=e=>{if(!drawing)return;e.preventDefault();const b=wrap.getBoundingClientRect();start={x:Math.max(0,Math.min(100,(e.clientX-b.left)/b.width*100)),y:Math.max(0,Math.min(100,(e.clientY-b.top)/b.height*100))};draft=document.createElement('div');draft.className='zone draft';wrap.append(draft);wrap.setPointerCapture(e.pointerId);};
  wrap.onpointermove=e=>{if(!start)return;const b=wrap.getBoundingClientRect(),x=Math.max(0,Math.min(100,(e.clientX-b.left)/b.width*100)),y=Math.max(0,Math.min(100,(e.clientY-b.top)/b.height*100));draft.dataset.rect=JSON.stringify({x:Math.min(start.x,x),y:Math.min(start.y,y),w:Math.abs(x-start.x),h:Math.abs(y-start.y)});const r=JSON.parse(draft.dataset.rect);Object.assign(draft.style,{left:r.x+'%',top:r.y+'%',width:r.w+'%',height:r.h+'%'});};
- wrap.onpointerup=()=>{if(!start)return;start=null;const r=JSON.parse(draft.dataset.rect||'null');draft.remove();draft=null;if(!r||r.w<1||r.h<1){notice('Область слишком маленькая. Обведите её ещё раз.');return;}const tool=drawing,n=node();if(tool.kind==='crop'){drawing=null;openCrop(n,r);return;}mutate(()=>{if(tool.kind==='new-jump'){(n.jumps||=[]).push({id:M.uid('jump'),label:'Переход',next:'',rect:r});p.settings.flow='branching';}else if(tool.kind==='jump')n.jumps[tool.index].rect=r;else if(tool.kind==='new-field'){if(n.type==='click'){n.type='form';n.fields=[];n.button='Далее';if(n.error==='Нажмите на нужную область.')n.error='Проверьте заполнение полей.';if(n.rect)n.submitRect=n.rect;delete n.rect;}const f=M.field();f.rect=r;f.kind=tool.fieldKind||'text';if(f.kind==='checkbox'){f.label='Галочка';f.expectedChecked=true;}if(['select','radio'].includes(f.kind)){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';f.label=f.kind==='select'?'Список':'Переключатели';}n.fields.push(f);}else if(tool.kind==='field')n.fields[tool.index].rect=r;else if(tool.kind==='submit')n.submitRect=r;else if(tool.kind==='click')n.rect=r;else if(tool.kind==='option')n.options[tool.index].rect=r;});drawing=null;render();if(tool.kind==='new-field')ScenaAreas.pickField(n.fields.at(-1).id);notice(tool.kind==='new-jump'?'Область сохранена. Выберите целевой шаг справа.':'Область сохранена. Настройте проверку шага.');if((n.type==='form'||tool.kind==='new-jump')&&innerWidth<=1160)document.body.classList.add('inspector-open');};wrap.onpointercancel=()=>{start=null;draft?.remove();draft=null;};}
+ wrap.onpointerup=()=>{if(!start)return;start=null;const r=JSON.parse(draft.dataset.rect||'null');draft.remove();draft=null;if(!r||r.w<1||r.h<1){notice('Область слишком маленькая. Обведите её ещё раз.');return;}const tool=drawing,n=node();if(tool.kind==='crop'){drawing=null;openCrop(n,r);return;}mutate(()=>{if(tool.kind==='new-jump'){(n.jumps||=[]).push({id:M.uid('jump'),label:'Переход',next:'',rect:r});p.settings.flow='branching';}else if(tool.kind==='jump')n.jumps[tool.index].rect=r;else if(tool.kind==='new-field'){if(n.type==='click'){n.type='form';n.fields=[];n.button='Далее';if(n.error==='Нажмите на нужную область.')n.error='Проверьте заполнение полей.';if(n.rect)n.submitRect=n.rect;delete n.rect;}const f=M.field();f.rect=r;f.kind=tool.fieldKind||'text';if(f.kind==='checkbox'){f.label='Галочка';f.expectedChecked=true;}if(['select','radio'].includes(f.kind)){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';f.label=f.kind==='select'?'Список':'Переключатели';}n.fields.push(f);}else if(tool.kind==='field')n.fields[tool.index].rect=r;else if(tool.kind==='submit')n.submitRect=r;else if(tool.kind==='click')n.rect=r;else if(tool.kind==='option')n.options[tool.index].rect=r;});drawing=null;if(['new-jump','new-field'].includes(tool.kind))inspectorSections.set(n.id+':add',false);if(tool.kind==='new-jump'){inspectorSections.set(n.id+':field',false);inspectorSections.set(n.id+':jumps',true);inspectorSections.set(n.id+':jump-'+n.jumps.at(-1).id,true);}if(tool.kind==='new-field')inspectorSections.set(n.id+':field',true);render();if(tool.kind==='new-field')ScenaAreas.pickField(n.fields.at(-1).id);notice(tool.kind==='new-jump'?'Область сохранена. Выберите целевой шаг справа.':'Область сохранена. Настройте проверку шага.');if((n.type==='form'||tool.kind==='new-jump')&&innerWidth<=1160)document.body.classList.add('inspector-open');};wrap.onpointercancel=()=>{start=null;draft?.remove();draft=null;};}
 function loadCropImage(path){
  return new Promise((resolve,reject)=>{
   const img=new Image();
@@ -1024,9 +1155,28 @@ function setPath(object,path,value){const parts=path.split('.');let ref=object;f
 let textEdit=null;
 $('inspector-content').addEventListener('input',e=>{const path=e.target.dataset.path;if(!path||!(e.target.tagName==='TEXTAREA'||e.target.type==='text'))return;const n=node();if(!n)return;const key=n.id+':'+path;if(textEdit!==key){checkpoint();textEdit=key;}setPath(n,path,e.target.value);changed();renderList();$('selected-title').textContent=n.title;const instruction=$('editor-content').querySelector('.step-instruction span');if(path==='instruction'&&instruction)instruction.textContent=n.instruction;if(path==='taskTitle'){const heading=$('editor-content').querySelector('.step-instruction h3');if(heading)heading.textContent=n.taskTitle||'Работа в программе';}if(/^fields\.\d+\.label$/.test(path)){const f=n.fields[Number(path.split('.')[1])],zone=Array.from(document.querySelectorAll('[data-area-key]')).find(e=>e.dataset.areaKey==='f:'+f.id);if(zone){zone.querySelector('span').textContent=f.label;zone.setAttribute('aria-label','Область: '+f.label);}const chip=Array.from(document.querySelectorAll('[data-select-field]')).find(e=>e.dataset.selectField===f.id);if(chip)chip.textContent=f.label+' · '+({text:'Текст',select:'Список',checkbox:'Галочка',radio:'Переключатели'}[f.kind||'text']);}});
 $('inspector-content').addEventListener('focusout',()=>{textEdit=null;});
-$('inspector-content').addEventListener('change',e=>{if(e.target.hasAttribute('data-field-match')||e.target.hasAttribute('data-field-autofill')){const autofill=e.target.hasAttribute('data-field-autofill');const f=node()?.fields[Number(e.target.dataset.fieldMatch??e.target.dataset.fieldAutofill)];if(f){const [stepId,fieldId]=e.target.value.split('/');mutate(()=>f[autofill?'autofill':'match']=stepId&&fieldId?{stepId,fieldId}:null);render();}return;}if(e.target.hasAttribute('data-screen-action')){const n=node(),action=e.target.value;if(action==='add-jump'){e.target.value=n.type;if((n.jumps?.length||0)<30)setDrawing({kind:'new-jump'});else notice('Доступно до 30 переходов.');return;}const type=action.startsWith('add-')?'form':action;mutate(()=>{n.type=type;if(type==='form'){if(!n.fields)n.fields=[];n.button=n.button||'Далее';if(n.error==='Нажмите на нужную область.')n.error='Проверьте заполнение полей.';}if(action.startsWith('add-')){if(n.fields.length>=30){notice('Доступно до 30 полей.');return;}const f=M.field();f.kind=action.slice(4);f.label={select:'Список',checkbox:'Галочка',radio:'Переключатели'}[f.kind];if(f.kind==='checkbox')f.expectedChecked=true;else {f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';}n.fields.push(f);}if(type==='click'&&!n.label)n.label='Продолжить';});render();if(action.startsWith('add-'))ScenaAreas.pickField(n.fields.at(-1).id);return;}const path=e.target.dataset.path;if(!path)return;const n=node();if(!n)return;if(e.target.tagName==='TEXTAREA'||e.target.type==='text')return;let value=e.target.type==='checkbox'?e.target.checked:e.target.type==='number'?Number(e.target.value):e.target.value;if(e.target.type==='number'&&!Number.isFinite(value))return;
+$('inspector-content').addEventListener('change',e=>{if(e.target.hasAttribute('data-field-match')||e.target.hasAttribute('data-field-autofill')){const autofill=e.target.hasAttribute('data-field-autofill');const f=node()?.fields[Number(e.target.dataset.fieldMatch??e.target.dataset.fieldAutofill)];if(f){const [stepId,fieldId]=e.target.value.split('/');mutate(()=>f[autofill?'autofill':'match']=stepId&&fieldId?{stepId,fieldId}:null);render();}return;}if(e.target.hasAttribute('data-inspector-field')){ScenaAreas.pickField(e.target.value);return;}const path=e.target.dataset.path;if(!path)return;const n=node();if(!n)return;if(e.target.tagName==='TEXTAREA'||e.target.type==='text')return;let value=e.target.type==='checkbox'?e.target.checked:e.target.type==='number'?Number(e.target.value):e.target.value;if(e.target.type==='number'&&!Number.isFinite(value))return;
  mutate(()=>{setPath(n,path,value);if(path==='next'||/^options\.\d+\.next$/.test(path))p.settings.flow='branching';if(path==='group'){selectedGroup=value;M.sequence(p);}if(/(?:rect|submitRect)\./.test(path)){const base=path.split('.').slice(0,-1);let r=n;for(const key of base)r=r[key];r.x=Math.max(0,Math.min(99,r.x));r.y=Math.max(0,Math.min(99,r.y));r.w=Math.max(1,Math.min(100-r.x,r.w));r.h=Math.max(1,Math.min(100-r.y,r.h));}if(/^fields\.\d+\.kind$/.test(path)){const f=n.fields[Number(path.split('.')[1])];if(value!=='text'){f.rule='exact';delete f.match;delete f.inputType;if(['select','radio'].includes(value)&&!f.choices){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';}}}if(path==='background'&&value)n.video='';if(path==='video'&&value){n.background='';n.selectBeforeContinue=false;}});render();});
-$('inspector-content').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!node())return;const d=b.dataset,n=node();if('cropScreen'in d){setDrawing({kind:'crop'});return;}
+$('inspector-content').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!node())return;const d=b.dataset,n=node();
+ if('inspectorDesign'in d){setTab('settings');$('theme-font')?.focus();return;}
+ if(d.inspectorTool){
+  const tool=d.inspectorTool;
+  if(tool==='jump'){
+   if((n.jumps?.length||0)>=30){notice('Доступно до 30 переходов.');return;}
+   setDrawing({kind:'new-jump'});
+  }else if(tool==='submit')setDrawing({kind:n.type==='click'?'click':'submit'});
+  else if(!n.background){
+   if((n.fields?.length||0)>=30){notice('Доступно до 30 полей.');return;}
+   const field=M.field();field.kind=tool;
+   field.label={text:'Поле ввода',select:'Список',checkbox:'Галочка',radio:'Переключатели'}[tool];
+   if(tool==='checkbox')field.expectedChecked=true;
+   if(['select','radio'].includes(tool)){field.choices='Вариант 1\nВариант 2';field.expected='Вариант 1';}
+   mutate(()=>{if(n.type==='click'){n.type='form';n.fields=[];n.button='Далее';if(n.rect)n.submitRect=n.rect;delete n.rect;}n.fields.push(field);});
+   render();ScenaAreas.pickField(field.id);
+  }else setDrawing({kind:'new-field',fieldKind:tool});
+  return;
+ }
+if('cropScreen'in d){setDrawing({kind:'crop'});return;}
  if('redrawJump'in d){setDrawing({kind:'jump',index:Number(d.redrawJump)});return;}
  if('removeJump'in d){mutate(()=>n.jumps.splice(Number(d.removeJump),1));render();return;}
  if(d.upload){attach(d.upload);return;}if('setStart'in d){mutate(()=>p.start=n.id);render();return;}if('delete'in d){removeStep(n.id);return;}if('duplicate'in d){duplicateStep(n.id);return;}if('addOption'in d){mutate(()=>n.options.push({id:M.uid('opt'),label:'Новый вариант',next:''}));render();}if('removeOption'in d){mutate(()=>n.options.splice(Number(d.removeOption),1));render();}if('addField'in d){mutate(()=>n.fields.push(M.field()));render();}if('removeField'in d){mutate(()=>n.fields.splice(Number(d.removeField),1));render();}if('drawClick'in d)setDrawing({kind:'click'});if('drawField'in d)setDrawing({kind:'field',index:Number(d.drawField)});if('drawSubmit'in d)setDrawing({kind:'submit'});if('clearSubmit'in d){mutate(()=>delete n.submitRect);render();}if('drawOption'in d)setDrawing({kind:'option',index:Number(d.drawOption)});});

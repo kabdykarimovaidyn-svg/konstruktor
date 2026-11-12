@@ -25,3 +25,28 @@
 .author-business-center p{color:#64778a;white-space:pre-wrap;line-height:1.7}
 .author-business-center span{display:inline-block;margin-top:15px;background:#005ca9;color:white;padding:12px 55px;border-radius:3px}
 .author-business-cover footer{border-top:1px solid #dde5ed;padding-top:15px;font-size:10px;letter-spacing:.06em;color:#73869a;text-align:center}
+
+/* Grouped property panel. */
+#inspector-content .inspector-section{margin:0 0 9px;border:1px solid #cfd9e3;border-radius:5px;background:#fff;overflow:hidden}
+#inspector-content .inspector-section>summary{list-style:none;position:relative;cursor:pointer;padding:12px 34px 12px 13px;background:#e5ebf1;font-size:13px;line-height:1.4;font-weight:700;color:#243b53;overflow-wrap:anywhere;user-select:none}
+#inspector-content .inspector-section>summary::-webkit-details-marker{display:none}
+#inspector-content .inspector-section>summary:after{content:'›';position:absolute;right:14px;top:9px;font-size:21px;font-weight:400;transition:transform .15s}
+#inspector-content .inspector-section[open]>summary{border-bottom:1px solid #cfd9e3}
+#inspector-content .inspector-section[open]>summary:after{transform:rotate(90deg)}
+#inspector-content .inspector-section>summary:focus-visible{outline:2px solid #005ca9;outline-offset:-3px}
+.inspector-section-body{padding:13px}
+.inspector-section-body>label:first-child{margin-top:0}
+.inspector-section-body>.small:first-child{margin-top:0}
+.inspector-section-body .block{margin:0;padding:0;border:0;background:none}
+#inspector-content .inspector-section .inspector-section>summary{background:#f0f3f7;font-size:12px;padding:10px 30px 10px 11px}
+#inspector-content .inspector-section .inspector-section-body{padding:11px}
+.inspector-tools{display:grid;gap:7px}
+.inspector-tools button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:10px 11px;gap:3px;border-color:#d1dce7;white-space:normal}
+.inspector-tools button strong{font-size:12px;font-weight:600;color:#005ca9}
+.inspector-tools button small{font-size:11px;line-height:1.4;color:#63788d}
+.inspector-tools button:hover:not(:disabled){border-color:#005ca9;background:#f1f7fd}
+.inspector-tools button:disabled{opacity:.5;cursor:default}
+.inspector-section-body>.full{margin-top:7px}
+.inspector-section-body .advanced{background:#f6f8fa;border:1px solid #dce3eb;border-radius:4px;margin:10px 0;padding:8px}
+.inspector-section-body .advanced>summary{font-weight:600;color:#455e76;cursor:pointer}
+.inspector-section-body .advanced[open]>summary{margin-bottom:10px}
