@@ -46,6 +46,8 @@ function renderInspector(){
  if(!n){panel.innerHTML='<p class="muted">Добавьте или выберите шаг.</p>';return;}
  const section=(key,title,body,open=false)=>inspectorSection(n,key,title,body,open);
  const screen=['form','click'].includes(n.type);
+ const selectedEntry=ScenaAreas.currentEntry?.(n);
+ const selectedJump=selectedEntry?.jump;
  const selectedVisual=ScenaAreas.currentVisual?.(n);
  const visualKey=selectedVisual?n.id+':'+selectedVisual.id:'';
  if(visualKey&&visualKey!==inspectorSelectedVisual){inspectorSections.set(n.id+':design',true);inspectorSections.set(n.id+':visual-properties',true);inspectorSections.set(n.id+':field',false);}
@@ -102,12 +104,28 @@ function renderInspector(){
    [['rectangle','Прямоугольник'],['ellipse','Овал'],['triangle','Треугольник'],['arrow','Стрелка'],['line','Линия']].map(([key,label])=>
     toolButton(key,label,'data-add-visual',key,!n.background)).join('')+'</div>';
   out+=section('add','Добавить элемент',tools,true);
+  const elements=ScenaAreas.items?.(n)||[];
+  if(elements.length){
+   const kindLabel=item=>item.field?({text:'Поле ввода',select:'Список',checkbox:'Галочка',radio:'Переключатели'}[item.field.kind||'text']):
+    item.jump?'Переход':item.visual?(item.visual.type==='text'?'Текст':'Фигура'):item.option?'Ответ':'Кнопка';
+   out+='<div class="applied-elements" role="group" aria-label="Добавленные элементы"><ul class="applied-element-list">'+elements.map(item=>
+    '<li><button type="button" data-applied-key="'+h(item.key)+'" aria-pressed="'+(selectedEntry?.key===item.key)+'">'+
+    '<span>'+h(item.label)+'</span><small>'+h(kindLabel(item))+'</small></button></li>').join('')+'</ul></div>';
+  }
  }
- if(n.type==='form'&&!selectedVisual){
+ if(n.type==='form'&&!selectedVisual&&(!selectedEntry||selectedEntry.field)){
   const fields='<label>Выбранное поле<select data-inspector-field>'+
    n.fields.map(f=>'<option value="'+h(f.id)+'" '+(ScenaAreas.currentField(n)?.id===f.id?'selected':'')+'>'+h(f.label)+'</option>').join('')+
    '</select></label>'+ScenaFieldUI.html(p,n,{input,checkbox,rectFields});
   out+=section('field','Свойства поля',fields,true);
+ }
+ if(selectedJump){
+  const i=n.jumps.indexOf(selectedJump);
+  out+=section('selected-jump','Свойства перехода',
+   input('Название области','jumps.'+i+'.label',selectedJump.label)+
+   target('Открыть шаг','jumps.'+i+'.next',selectedJump.next)+
+   '<button data-redraw-jump="'+i+'" class="full">Обвести область заново</button>'+
+   '<button data-remove-jump="'+i+'" class="full danger">Удалить переход</button>',true);
  }
  if(selectedVisual){
   const i=n.decorations.indexOf(selectedVisual),base='decorations.'+i+'.';
@@ -155,16 +173,6 @@ function renderInspector(){
   out+=section('video-options','Ответы поверх видео',video);
  }
  if(screen){
-  let transitions='';
-  for(const [i,j] of (n.jumps||[]).entries()){
-   transitions+=section('jump-'+j.id,j.label,
-    input('Название области','jumps.'+i+'.label',j.label)+
-    target('Открыть шаг','jumps.'+i+'.next',j.next)+
-    '<button data-redraw-jump="'+i+'" class="full">Обвести область заново</button>'+
-    '<button data-remove-jump="'+i+'" class="full danger">Удалить переход</button>');
-  }
-  if(!n.jumps?.length)transitions='<p class="small">Переходов пока нет. В разделе «Добавить элемент» выберите «Переход» и обведите кнопку или вкладку.</p>';
-  out+=section('jumps','Переходы по областям'+(n.jumps?.length?' · '+n.jumps.length:''),transitions);
   let check=textarea('Сообщение при неверном действии','error',n.error);
   if(n.type==='form'){
    check=input('Подпись кнопки проверки','button',n.button)+check+
@@ -247,7 +255,7 @@ function bindDrawing(){const wrap=$('screen-wrap');let start=null,draft=null;
  (n.decorations||=[]).push({id:M.uid('visual'),type,label:names[type],text:type==='text'?'Введите текст':'',rect:r,color:'#005ca9',fill:'#e7f1fb',noFill:type==='text'||type==='line',strokeWidth:2,autoFont:true,font:'Arial',fontSize:24});
 }else if(tool.kind==='new-jump'){(n.jumps||=[]).push({id:M.uid('jump'),label:'Переход',next:'',rect:r});p.settings.flow='branching';}else if(tool.kind==='jump')n.jumps[tool.index].rect=r;else if(tool.kind==='new-field'){if(n.type==='click'){n.type='form';n.fields=[];n.button='Далее';if(n.error==='Нажмите на нужную область.')n.error='Проверьте заполнение полей.';if(n.rect)n.submitRect=n.rect;delete n.rect;}const f=M.field();f.rect=r;f.kind=tool.fieldKind||'text';if(f.kind==='checkbox'){f.label='Галочка';f.expectedChecked=true;}if(['select','radio'].includes(f.kind)){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';f.label=f.kind==='select'?'Список':'Переключатели';}n.fields.push(f);}else if(tool.kind==='field')n.fields[tool.index].rect=r;else if(tool.kind==='submit')n.submitRect=r;else if(tool.kind==='click')n.rect=r;else if(tool.kind==='option')n.options[tool.index].rect=r;});drawing=null;if(tool.kind==='new-visual'){
  inspectorSections.set(n.id+':add',false);inspectorSections.set(n.id+':visual-properties',true);inspectorSections.set(n.id+':design',true);
-}if(['new-jump','new-field'].includes(tool.kind))inspectorSections.set(n.id+':add',false);if(tool.kind==='new-jump'){inspectorSections.set(n.id+':field',false);inspectorSections.set(n.id+':jumps',true);inspectorSections.set(n.id+':jump-'+n.jumps.at(-1).id,true);}if(tool.kind==='new-field')inspectorSections.set(n.id+':field',true);render();if(tool.kind==='new-visual')ScenaAreas.pickVisual(n.decorations.at(-1).id);if(tool.kind==='new-field')ScenaAreas.pickField(n.fields.at(-1).id);notice(tool.kind==='new-visual'?'Объект добавлен. Текст и оформление можно изменить справа.':tool.kind==='new-jump'?'Область сохранена. Выберите целевой шаг справа.':'Область сохранена. Настройте проверку шага.');if((n.type==='form'||tool.kind==='new-jump')&&innerWidth<=1160)document.body.classList.add('inspector-open');};wrap.onpointercancel=()=>{start=null;draft?.remove();draft=null;};}
+}if(['new-jump','new-field'].includes(tool.kind))inspectorSections.set(n.id+':add',false);if(tool.kind==='new-jump'){inspectorSections.set(n.id+':field',false);inspectorSections.set(n.id+':add',false);inspectorSections.set(n.id+':jump-'+n.jumps.at(-1).id,true);}if(tool.kind==='new-field')inspectorSections.set(n.id+':field',true);render();if(tool.kind==='new-visual')ScenaAreas.pickVisual(n.decorations.at(-1).id);if(tool.kind==='new-jump')ScenaAreas.pickEntry('j:'+n.jumps.at(-1).id);if(tool.kind==='new-field')ScenaAreas.pickField(n.fields.at(-1).id);notice(tool.kind==='new-visual'?'Объект добавлен. Текст и оформление можно изменить справа.':tool.kind==='new-jump'?'Область сохранена. Выберите целевой шаг справа.':'Область сохранена. Настройте проверку шага.');if((n.type==='form'||tool.kind==='new-jump')&&innerWidth<=1160)document.body.classList.add('inspector-open');};wrap.onpointercancel=()=>{start=null;draft?.remove();draft=null;};}
 function loadCropImage(path){
  return new Promise((resolve,reject)=>{
   const img=new Image();
@@ -326,6 +334,13 @@ function addTemplate(kind){if(kind==='guide'){const n=M.guideNode(selectedGroup)
 function setPath(object,path,value){const parts=path.split('.');let ref=object;for(const part of parts.slice(0,-1)){if(!Object.hasOwn(ref,part))throw Error('Поле не найдено.');ref=ref[part];}ref[parts.at(-1)]=value;}
 let textEdit=null;
 $('inspector-content').addEventListener('input',e=>{const path=e.target.dataset.path;if(!path||!(e.target.tagName==='TEXTAREA'||e.target.type==='text'))return;const n=node();if(!n)return;const key=n.id+':'+path;if(textEdit!==key){checkpoint();textEdit=key;}setPath(n,path,e.target.value);
+ if(/^(fields|jumps|decorations|options)\.\d+\.label$/.test(path)){
+  const elements=ScenaAreas.items(n);
+  for(const button of $('inspector-content').querySelectorAll('[data-applied-key]')){
+   const item=elements.find(item=>item.key===button.dataset.appliedKey);
+   if(item)button.querySelector('span').textContent=item.label;
+  }
+ }
  if(path.startsWith('decorations.')){
   const wrap=$('screen-wrap');
   if(wrap){wrap.querySelectorAll('.screen-visual').forEach(el=>el.remove());wrap.insertAdjacentHTML('beforeend',(n.decorations||[]).map(v=>ScenaVisuals.markup(v)).join(''));}
@@ -341,6 +356,14 @@ $('inspector-content').addEventListener('change',e=>{if(e.target.hasAttribute('d
  }
  if(path==='next'||/^options\.\d+\.next$/.test(path))p.settings.flow='branching';if(path==='group'){selectedGroup=value;M.sequence(p);}if(/(?:rect|submitRect)\./.test(path)){const base=path.split('.').slice(0,-1);let r=n;for(const key of base)r=r[key];r.x=Math.max(0,Math.min(99,r.x));r.y=Math.max(0,Math.min(99,r.y));r.w=Math.max(1,Math.min(100-r.x,r.w));r.h=Math.max(1,Math.min(100-r.y,r.h));}if(/^fields\.\d+\.kind$/.test(path)){const f=n.fields[Number(path.split('.')[1])];if(value!=='text'){f.rule='exact';delete f.match;delete f.inputType;if(['select','radio'].includes(value)&&!f.choices){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';}}}if(path==='background'&&value)n.video='';if(path==='video'&&value){n.background='';n.selectBeforeContinue=false;}});render();});
 $('inspector-content').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!node())return;const d=b.dataset,n=node();
+ if(d.appliedKey){
+  inspectorSections.set(n.id+':add',false);
+  inspectorSections.set(n.id+':selected-jump',true);
+  if(['click','submit'].includes(d.appliedKey))inspectorSections.set(n.id+':continue',true);
+  if(d.appliedKey.startsWith('o:')){inspectorSections.set(n.id+':answers',true);inspectorSections.set(n.id+':option-'+d.appliedKey.slice(2),true);}
+  ScenaAreas.pickEntry(d.appliedKey);return;
+ }
+
  if(d.addVisual){
   if((n.decorations?.length||0)>=50){notice('Доступно до 50 фигур и текстовых блоков.');return;}
   setDrawing({kind:'new-visual',visualType:d.addVisual});return;

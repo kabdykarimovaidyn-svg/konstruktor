@@ -18,7 +18,7 @@ const context = {
  node:()=>selected,
  $:id=>id==='inspector-content'?panel:{textContent:''},
  h:value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),
- ScenaAreas:{currentField:n=>n.fields?.[0]},
+ ScenaAreas:{currentField:n=>n.fields?.[0],items:n=>[...(n.fields||[]).map(f=>({key:'f:'+f.id,label:f.label,field:f})),...(n.jumps||[]).map(j=>({key:'j:'+j.id,label:j.label,jump:j})),...(n.decorations||[]).map(v=>({key:'v:'+v.id,label:v.label,visual:v}))]},
  linkOptions:()=>'<option value="">Не выбран</option>',
  assetOptions:()=>'<option value="">Не выбран</option>'
 };
@@ -35,11 +35,11 @@ for(const type of ['form','click','choice','video','intro','message','slide','re
  assert.ok(panel.innerHTML.includes('Оформление'));
  assert.ok(!panel.innerHTML.includes('data-screen-action'));
  if(type==='form'){
-  for(const name of ['Добавить элемент','Свойства поля','Переходы по областям','Проверка и продолжение'])
+  for(const name of ['Добавить элемент','Свойства поля','Добавленные элементы','Проверка и продолжение'])
    assert.ok(panel.innerHTML.includes(name),name);
   assert.ok(panel.innerHTML.includes('data-inspector-tool="jump"'));
   assert.ok(panel.innerHTML.includes('data-path="fields.0.expected"')===false);
-  assert.ok(panel.innerHTML.includes('data-path="jumps.0.next"'));
+  assert.ok(panel.innerHTML.includes('data-applied-key="j:jump1"'));
  }
 }
 console.log('Правая панель: разделы, инструменты, выбранное поле и переходы доступны для всех типов шагов.');
@@ -61,3 +61,22 @@ vm.runInContext('renderInspector()',context);
 assert.ok(panel.innerHTML.includes('data-rotate-object="90"'));
 assert.ok(panel.innerHTML.includes('data-reset-rotation'));
 console.log('Фигуры вложены в добавление элементов, палитра использует пиктограммы, поворот доступен в свойствах.');
+
+assert.ok(!panel.innerHTML.includes('Переходы по областям'));
+const addSection=panel.innerHTML.indexOf('data-inspector-section="'+selected.id+':add"');
+const appliedList=panel.innerHTML.indexOf('class="applied-elements"');
+assert.ok(appliedList>addSection);
+assert.ok(panel.innerHTML.slice(0,panel.innerHTML.lastIndexOf('<div',appliedList)).endsWith('</div></details>'));
+console.log('Применённые переходы отображаются соседним списком после закрытого раздела добавления.');
+
+assert.ok(panel.innerHTML.includes('data-applied-key="j:jump1"'));
+assert.ok(panel.innerHTML.includes('data-applied-key="v:v1"'));
+assert.ok(panel.innerHTML.includes('data-applied-key="f:'));
+console.log('Список добавленных объектов содержит поля, переходы и фигуры.');
+
+context.ScenaAreas.currentEntry=n=>({key:'j:jump1',label:n.jumps[0].label,jump:n.jumps[0]});
+context.ScenaAreas.currentVisual=()=>undefined;
+vm.runInContext('renderInspector()',context);
+assert.ok(panel.innerHTML.includes('Свойства перехода'));
+assert.ok(panel.innerHTML.includes('data-path="jumps.0.next"'));
+console.log('Выбор применённого перехода открывает его настройки.');
