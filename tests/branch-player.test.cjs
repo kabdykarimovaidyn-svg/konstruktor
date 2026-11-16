@@ -180,6 +180,8 @@ for(const mode of ['learn','test']){
  assert.equal(modePlayer.getState().score,mode==='test'?90:0);
  assert.equal(modePlayer.getState().scored,mode==='test');
  assert.equal(all('button').some(e=>e.textContent==='Пройти заново'),mode==='learn');
+ const actions=nodes.screen.all().find(e=>e.className==='completion-actions');
+ assert.deepEqual(actions.children.map(e=>e.textContent),mode==='learn'?['Пройти заново','Завершить']:['Завершить']);
  if(mode==='learn'){click('Пройти заново');assert.equal(modePlayer.getState().step,'main');assert.equal(modePlayer.getState().done,false);assert.equal(all('select')[0].value,'');assert.equal(modePlayer.getState().progress,'');}
 
 }
