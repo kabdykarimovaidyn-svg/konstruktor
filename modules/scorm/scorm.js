@@ -68,6 +68,7 @@ async function build(course,assets={}){
  for(const path of allowed){if(!/^media\/[a-zA-Z0-9_.-]+$/.test(path))throw Error('Небезопасный путь: '+path);const input=assets[path];const bytes=input instanceof Uint8Array?input:input instanceof ArrayBuffer?new Uint8Array(input):typeof input?.arrayBuffer==='function'?new Uint8Array(await input.arrayBuffer()):null;if(!bytes||!bytes.length)throw Error('Пустой или неподдерживаемый файл: '+path);files.push([path,bytes]);}
  if(clone.theme?.logo&&!allowed.has(clone.theme.logo))throw Error('Логотип не включён в пакет.');
  for(const s of clone.steps)for(const key of ['src','background'])if(s[key]&&!allowed.has(s[key]))throw Error('Медиафайл не включён в пакет: '+s[key]);
+ for(const s of clone.steps)for(const v of s.decorations||[])if(v.type==='image'&&!allowed.has(v.src))throw Error('Картинка не включена в пакет: '+v.src);
  const data=JSON.stringify(clone).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
  const html='<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escapeXML(course.title)+'</title><link rel="stylesheet" href="player.css">'+root.ScenaPlayer.markup+'<script src="course.js"></script><script src="player.js"></script></html>';
  files.push(['index.html',html],['player.css',css],['course.js','window.SCENA_COURSE='+data+';'],['player.js','('+player.toString()+')(window.SCENA_COURSE,'+runtime.toString()+','+root.ScenaVisuals.markup.toString()+');']);
@@ -78,6 +79,7 @@ async function build(course,assets={}){
 function preview(course,assets={}){
  validate(course);const clone=JSON.parse(JSON.stringify(course));clone.preview=true;
  for(const step of clone.steps)for(const key of ['src','background'])if(step[key]){if(!assets[step[key]])throw Error('Не найден медиафайл: '+step[key]);step[key]=assets[step[key]];}
+ for(const step of clone.steps)for(const v of step.decorations||[])if(v.type==='image'){if(!assets[v.src])throw Error('Не найдена картинка: '+v.src);v.src=assets[v.src];}
  if(clone.theme?.logo){if(!assets[clone.theme.logo])throw Error('Не найден логотип.');clone.theme.logo=assets[clone.theme.logo];}
  const json=JSON.stringify(clone).replace(/</g,'\\u003c');
  return '<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Предпросмотр</title><style>'+root.ScenaPlayer.css+'</style>'+root.ScenaPlayer.markup+'<script>('+root.ScenaPlayer.run.toString()+')('+json+','+runtime.toString()+','+root.ScenaVisuals.markup.toString()+');</script></html>';

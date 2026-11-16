@@ -31,11 +31,30 @@ p.assets[screen.background]={name:'screen.svg',blob:new Blob([svg],{type:'image/
 assert.equal(M.inspect(p).problems.length,0);
 assert.deepEqual(M.cleanImport(p).steps[0].decorations,objects);
 const preview=ScenaSCORM.preview(M.toCourse(p),{[screen.background]:'data:image/svg+xml,'+encodeURIComponent(svg)});
-assert.ok(preview.includes('function markup(v)'));
+assert.ok(preview.includes('function markup(v,resolve)'));
 assert.ok(preview.includes('container-type:size'));
 (async()=>{
  const zip=await ScenaSCORM.build(M.toCourse(p),{[screen.background]:p.assets[screen.background].blob});
  fs.writeFileSync('/tmp/visuals-scorm12.zip',Buffer.from(await zip.arrayBuffer()));
- assert.ok(Buffer.from(await zip.arrayBuffer()).includes(Buffer.from('function markup(v)')));
+ assert.ok(Buffer.from(await zip.arrayBuffer()).includes(Buffer.from('function markup(v,resolve)')));
  console.log('Фигуры и текст: безопасная разметка, импорт, автономный renderer и SCORM проверены.');
+})().catch(error=>{console.error(error);process.exitCode=1;});
+
+const image={id:'image_test',type:'image',label:'Картинка',src:'media/overlay.png',rect:{x:10,y:10,w:30,h:20}};
+assert.equal(ScenaVisuals.valid([image]),true);
+assert.equal(ScenaVisuals.valid([{...image,src:'https://outside.example/a.png'}]),false);
+assert.ok(ScenaVisuals.markup(image).includes('media/overlay.png'));
+assert.ok(ScenaVisuals.markup(image,()=> 'blob:local-image').includes('blob:local-image'));
+assert.equal(ScenaVisuals.markup({...image,src:'javascript:alert(1)'}),'');
+screen.decorations.push(image);
+p.assets[image.src]={name:'overlay.png',blob:new Blob([new Uint8Array([137,80,78,71])],{type:'image/png'})};
+assert.equal(M.inspect(p).problems.length,0);
+const imagePreview=ScenaSCORM.preview(M.toCourse(p),{[screen.background]:'blob:background',[image.src]:'blob:overlay'});
+assert.ok(imagePreview.includes('blob:overlay'));
+assert.throws(()=>ScenaSCORM.preview(M.toCourse(p),{[screen.background]:'blob:background'}),/картинка/);
+(async()=>{
+ const course=M.toCourse(p),assets=Object.fromEntries(Object.entries(p.assets).map(([k,a])=>[k,a.blob]));
+ await assert.rejects(()=>ScenaSCORM.build(course,{[screen.background]:p.assets[screen.background].blob}),/Картинка/);
+ const zip=await ScenaSCORM.build(course,assets);assert.ok(Buffer.from(await zip.arrayBuffer()).includes(Buffer.from('media/overlay.png')));
+ console.log('Картинка-объект: безопасный путь, предпросмотр, обязательное включение в SCORM и автономная упаковка проверены.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

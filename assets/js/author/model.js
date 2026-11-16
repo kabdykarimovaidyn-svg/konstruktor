@@ -11,6 +11,37 @@ const brandLogo='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vc
 const uid=prefix=>prefix+'_'+Math.random().toString(36).slice(2,10);
 function project(){const end=node('end','s1');return {schema:2,id:uid('course'),title:'Новый учебный курс',start:end.id,steps:[end],groups:[{id:'s1',title:'Раздел 1'}],layout:{[end.id]:{x:60,y:60}},settings:{mode:'learn',penalty:10,flow:'sequence'},createdAt:Date.now(),assets:{}};}
 function node(type,group){const id=uid('step');const n={id,type,title:types[type],instruction:'',group};if(type!=='end')n.next='';if(type==='intro'){n.body='Добро пожаловать! Нажмите «Начать», чтобы приступить.';n.button='Начать';}if(type==='slide')n.button='Далее';if(type==='video')n.src='';if(type==='choice'){delete n.next;n.options=[{id:uid('opt'),label:'Вариант 1',next:''},{id:uid('opt'),label:'Вариант 2',next:''}];n.video='';}if(type==='form'){n.fields=[field()];n.error='Проверьте заполнение полей.';n.button='Далее';}if(type==='click'){n.rect={x:35,y:60,w:30,h:12};n.error='Нажмите на нужную область.';n.label='Продолжить';}if(type==='message'){n.body='Введите пояснение или текст ситуации.';n.button='Продолжить';}if(type==='return'){n.title='Повторить вопрос';n.penalty=true;}return n;}
+function browserTemplate(group){
+ const n=node('form',group),r=(x,y,w,h)=>({x:x/14.4,y:y/9,w:w/14.4,h:h/9});
+ n.title='Браузер — адрес CRM';n.instruction='Введите адрес CRM в адресную строку и нажмите Enter или стрелку справа.';
+ n.fields=[{...field(),label:'Адрес CRM',rule:'url',expected:'crm.example.com',placeholder:'Введите адрес CRM',rect:r(166,66,1050,40)}];
+ n.button='Перейти';n.submitRect=r(1228,66,48,40);n.showNext=false;n.countMissClicks=false;
+ n.error='Проверьте адрес CRM: домен и путь должны совпадать с заданием.';
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+ <defs><linearGradient id="page" x2="0" y2="1"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#f4f8fc"/></linearGradient></defs>
+ <rect width="1440" height="900" rx="12" fill="url(#page)"/>
+ <path d="M12 0h1416a12 12 0 0 1 12 12v42H0V12A12 12 0 0 1 12 0" fill="#dce8f4"/>
+ <g font-family="Arial,sans-serif"><circle cx="24" cy="26" r="5" fill="#8ba4bb"/><circle cx="44" cy="26" r="5" fill="#a3b7c9"/><circle cx="64" cy="26" r="5" fill="#b6c7d6"/>
+ <path d="M94 54V20q0-10 12-10h252q12 0 12 10v34" fill="#f8fbfe"/>
+ <rect x="111" y="23" width="15" height="15" rx="4" fill="#005ca9"/><text x="138" y="35" font-size="14" fill="#28435d">Новая вкладка</text>
+ <path d="m344 26 8 8m0-8-8 8m49-5h16m-8-8v16" stroke="#698399" stroke-width="1.6" stroke-linecap="round"/>
+ <path d="M1332 27h12m38-6h10v10h-10m33-10 10 10m0-10-10 10" stroke="#698399" stroke-width="1.5" fill="none"/>
+ <rect y="54" width="1440" height="66" fill="#f8fbfe"/><path d="M0 120h1440" stroke="#d6e2ed"/>
+ <g stroke="#56728c" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m30 80-8 8 8 8m-8-8h20m27-8 8 8-8 8m8-8H57"/><path d="M112 80a10 10 0 1 0 3 12m-3-12v8h-8"/></g>
+ <rect x="145" y="62" width="1148" height="48" rx="24" fill="white" stroke="#b7cddd"/>
+ <path d="m1248 79 8 8-8 8m-10-8h18" stroke="#005ca9" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="m1316 80 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="none" stroke="#718ba1" stroke-width="1.5"/>
+ <circle cx="1360" cy="87" r="14" fill="#dceaf7"/><circle cx="1360" cy="83" r="4" fill="#6b8caa"/><path d="M1353 94q7-9 14 0" fill="#6b8caa"/>
+ <g fill="#718ba1"><circle cx="1406" cy="81" r="2"/><circle cx="1406" cy="87" r="2"/><circle cx="1406" cy="93" r="2"/></g>
+ <rect x="644" y="304" width="152" height="152" rx="38" fill="#eef5fc"/>
+ <rect x="680" y="343" width="80" height="62" rx="8" fill="white" stroke="#005ca9" stroke-width="3"/>
+ <path d="M681 360h78m-61-9h2m7 0h2m7 0h2m-13 30h32m-32 10h22" stroke="#005ca9" stroke-width="3" stroke-linecap="round"/>
+ <text x="720" y="505" text-anchor="middle" font-size="30" font-weight="600" fill="#254765">Новая вкладка</text>
+ <text x="720" y="543" text-anchor="middle" font-size="18" fill="#748b9f">Рабочее пространство</text>
+ <path d="M60 837h1320" stroke="#e3ecf4"/><text x="720" y="869" text-anchor="middle" font-size="13" fill="#8499ac">Учебный браузер · ввод адреса не открывает реальный сайт</text>
+ </g></svg>`;
+ return {node:n,svg};
+}
 function field(){return {id:uid('field'),label:'Поле ввода',rule:'exact',expected:'',rect:{x:20,y:35,w:60,h:10}};}
 function links(n){const primary= n.type==='end'?[]:n.options?n.options.filter(o=>!o.wrong).map(o=>({key:o.id||String(n.options.indexOf(o)),label:o.label,to:o.next})): [{key:'next',label:n.type==='return'?'Повторить выбор':'Далее',to:n.next}];return [...primary,...(n.jumps||[]).map(j=>({key:j.id,label:j.label,to:j.next}))];}
 function toCourse(p){return {coverLogo:brandLogo,id:p.id,title:p.title,start:p.start,mode:p.settings.mode,penalty:p.settings.penalty,theme:structuredClone(p.theme||{}),steps:p.steps.map(n=>{const s=structuredClone(n);delete s.group;return s;})};}
@@ -41,6 +72,7 @@ function inspect(p){const problems=[],warnings=[],ids=new Set(p.steps.map(s=>s.i
   if(n.type==='video'&&!p.assets[n.src])add('загрузите видео.');
   if(n.decorations!==undefined&&!VisualRules.valid(n.decorations))add('проверьте фигуры и текст.');
   if(n.background&&!p.assets[n.background])add('файл скриншота отсутствует.');
+  if(n.decorations?.some(v=>v.type==='image'&&!p.assets[v.src]))add('файл картинки отсутствует.');
   if(n.type==='click'&&!n.background)add('загрузите скриншот.');if(n.type==='click'&&!n.rect&&!n.jumps?.length)add('выделите кнопку на скриншоте.');
   if(n.type==='choice'&&(!n.options?.length||!n.options.some(o=>!o.wrong)))add('нужен хотя бы один вариант с переходом.');
   if(n.type==='choice'&&n.video&&!p.steps.some(s=>s.id===n.video&&s.type==='video'))add('выберите существующее видео для последнего кадра.');
@@ -70,7 +102,7 @@ function ordered(p){return p.groups.flatMap(g=>p.steps.filter(n=>n.group===g.id)
 function sequence(p){if(p.settings.flow!=='sequence')return;const all=ordered(p),ends=all.filter(n=>n.type==='end');ends.forEach(n=>n.group=p.groups.at(-1).id);const steps=[...all.filter(n=>n.type!=='end'),...ends];p.steps=steps;p.start=steps[0]?.id||'';steps.forEach((n,i)=>{const next=steps[i+1]?.id||'';if(n.type==='end')return;if(n.options)n.options.forEach(o=>{if(!o.wrong)o.next=next;});else n.next=next;});}
 function insert(p,nodes,afterId,groupId){const group=groupId||p.steps.find(n=>n.id===afterId)?.group||p.groups[0].id;nodes.forEach(n=>n.group=group);const original=p.steps.find(n=>n.id===afterId);const oldNext=original?.next;let list=p.steps.filter(n=>n.group===group),at=list.findIndex(n=>n.id===afterId)+1;if(original?.type==='end')at=Math.max(0,list.findIndex(n=>n.id===afterId));if(!afterId)at=list.findIndex(n=>n.type==='end');if(at<0)at=list.length;list.splice(at,0,...nodes);p.steps=p.groups.flatMap(g=>g.id===group?list:p.steps.filter(n=>n.group===g.id));
  nodes.forEach((n,i)=>{p.layout[n.id]={x:60,y:70+(at+i)*290};if(n.type!=='end'&&!n.options)n.next=nodes[i+1]?.id||oldNext||list.find(n=>n.type==='end')?.id||'';});
- if(p.settings.flow==='sequence')sequence(p);else if(original&&original.type!=='end'&&original.type!=='return'&&!original.options)original.next=nodes[0].id;
+ if(p.settings.flow==='sequence')sequence(p);
 }
 function move(p,id,targetId,after=false,groupId){if(id===targetId)return;const n=p.steps.find(n=>n.id===id);if(!n)return;const target=p.steps.find(n=>n.id===targetId),group=target?.group||groupId||n.group;if(!p.groups.some(g=>g.id===group))return;const rest=p.steps.filter(s=>s.id!==id),groupNodes=rest.filter(s=>s.group===group);let at=target?groupNodes.findIndex(s=>s.id===targetId)+(after?1:0):groupNodes.length;n.group=group;groupNodes.splice(Math.max(0,at),0,n);p.steps=p.groups.flatMap(g=>g.id===group?groupNodes:rest.filter(s=>s.group===g.id));sequence(p);}
 function moveGroup(p,id,direction){const at=p.groups.findIndex(g=>g.id===id),to=at+direction;if(at<0||to<0||to>=p.groups.length)return;[p.groups[at],p.groups[to]]=[p.groups[to],p.groups[at]];p.steps=ordered(p);sequence(p);}
@@ -107,5 +139,5 @@ function addGuide(p){
 function addIntro(p){if(p.steps.some(n=>n.type==='intro'))return;const intro=node('intro',p.groups[0].id);intro.next=p.start;p.steps.unshift(intro);p.start=intro.id;p.layout[intro.id]={x:60,y:20};sequence(p);}
 function fieldCandidates(p,stepId,fieldId){return FieldRules.candidates({...toCourse(p),steps:ordered(p)},stepId,fieldId);}
 function usedFields(p){return FieldRules.remembered(toCourse(p));}
-root.ScenaModel={brandLogo,guideNode,addGuide,addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,field,links,toCourse,previewCourse,previewFrom,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
+root.ScenaModel={brandLogo,guideNode,addGuide,addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,browserTemplate,field,links,toCourse,previewCourse,previewFrom,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
 })(typeof window!=='undefined'?window:globalThis);

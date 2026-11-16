@@ -1,7 +1,7 @@
 /* Pure, escaped visual markup shared by the author canvas and exported player. */
 (function(root){
 'use strict';
-function markup(v){
+function markup(v,resolve){
  const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const number=(value,fallback,min,max)=>Math.max(min,Math.min(max,Number.isFinite(Number(value))?Number(value):fallback));
  const color=(value,fallback)=>/^#[a-f0-9]{6}$/i.test(value||'')?value:fallback;
@@ -9,7 +9,11 @@ function markup(v){
  const stroke=color(v.color,'#005ca9'),fill=v.noFill?'none':color(v.fill,'#e7f1fb');
  const width=number(v.strokeWidth,2,0,12),rotation=number(v.rotation,0,-360,360);
  let content='';
- if(v.type==='text'){
+ if(v.type==='image'){
+  const src=resolve?resolve(v.src):v.src;
+  if(!/^(?:media\/[\w.-]+|blob:[^\s<>]+)$/.test(src||''))return '';
+  content='<img class="visual-image" src="'+escape(src)+'" alt="'+escape(v.label||'Картинка')+'" draggable="false" style="width:100%;height:100%;object-fit:fill;display:block">';
+ }else if(v.type==='text'){
   const font=['Arial','Verdana','Georgia','Tahoma','Trebuchet MS'].includes(v.font)?v.font:'Arial';
   const size=v.autoFont!==false?'min(48cqh, 12cqw)':number(v.fontSize,24,8,120)/w*10+'cqw';
   const align=['left','center','right'].includes(v.align)?v.align:'left';
@@ -36,9 +40,10 @@ function valid(list){
   if(!v||!/^[-\w]{1,80}$/.test(v.id)||ids.has(v.id))return false;
   ids.add(v.id);
   const r=v.rect;
-  return ['text','rectangle','ellipse','triangle','arrow','line'].includes(v.type)&&
+  return ['image','text','rectangle','ellipse','triangle','arrow','line'].includes(v.type)&&
    r&&['x','y','w','h'].every(k=>Number.isFinite(r[k]))&&r.x>=0&&r.y>=0&&r.w>0&&r.h>0&&r.x+r.w<=100.001&&r.y+r.h<=100.001&&
-   (v.type!=='text'||typeof v.text==='string'&&v.text.length<=5000);
+   (v.type!=='text'||typeof v.text==='string'&&v.text.length<=5000)&&
+   (v.type!=='image'||typeof v.src==='string'&&/^media\/[\w.-]+\.(?:png|jpe?g|webp)$/i.test(v.src));
  });
 }
 root.ScenaVisuals={markup,valid};
