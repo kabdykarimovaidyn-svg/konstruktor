@@ -170,13 +170,28 @@ for(const mode of ['learn','test']){
  const modePlayer=window.ScenaPlayer.run(c,()=>bridge);
  assert.equal(document.documentElement['data-course-mode'],mode);
  all('select')[0].value='Неверно';click('Продолжить проверку');
- assert.equal(modePlayer.getState().step,'main');assert.equal(modePlayer.getState().errors,1);
+ assert.equal(modePlayer.getState().step,'main');assert.equal(modePlayer.getState().errors,mode==='test'?1:0);
  if(mode==='test'){
   assert.equal(all('select')[0]['aria-invalid'],undefined);
   assert.ok(!nodes.feedback.textContent.includes('Статус'));
   assert.ok(!nodes.feedback.textContent.includes('рабочий'));
  }else{assert.equal(all('select')[0]['aria-invalid'],'true');assert.equal(nodes.feedback.textContent,'Выберите рабочий статус');}
  all('select')[0].value='Верно';click('Продолжить проверку');assert.equal(modePlayer.getState().done,true);
- assert.equal(modePlayer.getState().score,90);
+ assert.equal(modePlayer.getState().score,mode==='test'?90:0);
+ assert.equal(modePlayer.getState().scored,mode==='test');
+ assert.equal(all('button').some(e=>e.textContent==='Пройти заново'),mode==='learn');
+ if(mode==='learn'){click('Пройти заново');assert.equal(modePlayer.getState().step,'main');assert.equal(modePlayer.getState().done,false);assert.equal(all('select')[0].value,'');assert.equal(modePlayer.getState().progress,'');}
+
 }
-console.log('Обучение и экзамен: одинаковая проверка и оценка, подсказки и подсветка ошибки только в обучении.');
+console.log('Обучение и экзамен: одинаковая проверка ответов, обучение без оценки с повтором, экзамен с оценкой без повтора.');
+// Delayed penalties must also remain unscored in learning.
+const learningStory=structuredClone(course);learningStory.mode='learn';
+const storyPlayer=window.ScenaPlayer.run(learningStory,()=>bridge);
+all('video')[0].onended();click('Bad');all('video')[0].onended();click('Далее');
+assert.equal(storyPlayer.getState().step,'choose');assert.equal(storyPlayer.getState().errors,0);
+// A saved learning run must never restore into the same-ID exam.
+const examResume=structuredClone(dropdownCourse);examResume.mode='test';delete examResume.steps[0].jumps[0].checkBeforeJump;
+const crossMode=window.ScenaPlayer.run(examResume,()=>({...bridge,get:()=>JSON.stringify({v:4,mode:'learn',course:examResume.id,step:'end',errors:0,score:0,done:true})}));
+assert.equal(crossMode.getState().step,'main');assert.equal(crossMode.getState().done,false);
+assert.equal(crossMode.getState().scored,true);
+console.log('Отложенные штрафы в обучении отключены; прогресс обучения не восстанавливается в экзамене.');

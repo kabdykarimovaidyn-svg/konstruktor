@@ -3,12 +3,14 @@
 'use strict';
 function run(course,runtimeFactory,visualMarkup){
  if(!visualMarkup&&window.ScenaVisuals)visualMarkup=window.ScenaVisuals.markup;
- const exam=course.mode==='test';
+ const exam=course.mode==='test',learning=course.mode==='learn';
  if(document.documentElement)document.documentElement.setAttribute('data-course-mode',exam?'test':'learn');
  const byId=Object.fromEntries(course.steps.map(s=>[s.id,s]));
  const api=course.preview?{connected:false,warnings:[],get:()=>'',save:()=>true,finish:()=>true}:runtimeFactory(window);
- let state={v:4,values:{},progress:'',course:course.id,step:course.start,errors:0,done:false,score:0,time:0,refs:{},salt:''},currentVideo=null,lastSave=0,generation=0;const frames=new Map(),screenValues=new Map();let rememberScreen=null;
- try{const v=JSON.parse(api.get('cmi.suspend_data'));if([1,2,3,4].includes(v.v)&&v.course===course.id&&byId[v.step]&&Number.isInteger(v.errors)&&v.errors>=0&&typeof v.done==='boolean'&&Number.isFinite(v.score)&&v.score>=0&&v.score<=100)state={...state,...v,done:byId[v.step].type==='end'&&v.done,time:Math.max(0,Number(v.time)||0)};}catch{}
+ const freshState=()=>({v:4,mode:course.mode||'legacy',scored:!learning,values:{},progress:'',course:course.id,step:course.start,errors:0,done:false,score:0,time:0,refs:{},salt:''});
+ let state=freshState(),currentVideo=null,lastSave=0,generation=0;const frames=new Map(),screenValues=new Map();let rememberScreen=null;
+ try{const v=JSON.parse(api.get('cmi.suspend_data'));if([1,2,3,4].includes(v.v)&&v.course===course.id&&(!v.mode||v.mode===(course.mode||'legacy'))&&byId[v.step]&&Number.isInteger(v.errors)&&v.errors>=0&&typeof v.done==='boolean'&&Number.isFinite(v.score)&&v.score>=0&&v.score<=100)state={...state,...v,done:byId[v.step].type==='end'&&v.done,time:Math.max(0,Number(v.time)||0)};}catch{}
+ state.mode=course.mode||'legacy';state.scored=!learning;if(learning){state.errors=0;state.score=0;}
  const $=id=>document.getElementById(id);$('title').textContent=course.title;
  const refKey=(step,field)=>step+'/'+field,needed=new Set();
  for(const step of course.steps)for(const f of step.type==='input'?[{id:'single',remember:step.remember}]:step.fields||[]){if(f.remember)needed.add(refKey(step.id,f.id));if(f.rule==='match'&&f.match)needed.add(refKey(f.match.stepId,f.match.fieldId));}
@@ -27,18 +29,23 @@ function run(course,runtimeFactory,visualMarkup){
  function mark(id){const i=course.steps.findIndex(s=>s.id===id);if(i<0)return;const a=state.progress.padEnd(Math.ceil(course.steps.length/4),'0').split('');a[Math.floor(i/4)]=(parseInt(a[Math.floor(i/4)],16)|(1<<(i%4))).toString(16);state.progress=a.join('');}
  function progress(){const bar=$('course-progress');if(!bar)return;bar.replaceChildren();const done=course.steps.filter((s,i)=>visited(i)&&s.type!=='return');const queue=[[state.step]],seen=new Set();let rest=[];while(queue.length){const path=queue.shift(),id=path.at(-1);if(seen.has(id))continue;seen.add(id);const s=byId[id];if(!s)continue;if(s.type==='end'){rest=path.map(id=>byId[id]).filter(s=>s.type!=='return');break;}for(const to of [...(s.options?s.options.filter(o=>!o.wrong).map(o=>o.next):[s.next]),...(s.jumps||[]).map(j=>j.next)])if(to&&!path.includes(to))queue.push([...path,to]);}const pages=[...done,...rest.filter(s=>!done.some(d=>d.id===s.id))];for(const page of pages){const seg=el('span',undefined,bar);seg.className=page.id===state.step?'current':visited(course.steps.indexOf(page))?'complete':'pending';seg.setAttribute('aria-label',page.id===state.step?'Текущая страница':visited(course.steps.indexOf(page))?'Пройдено':'Впереди');}bar.setAttribute('aria-label','Прогресс: '+done.length+' из '+pages.length+' страниц маршрута');}
  let finished=false,finishing=false;
- function stats(){if($('errors'))$('errors').textContent='Ошибок: '+state.errors;}
+ function stats(){if($('errors'))$('errors').textContent=learning?'Обучение · без оценки':'Ошибок: '+state.errors;}
  function warning(message){const e=$('session-warning');if(e){e.textContent=message||'';e.hidden=!message;}}
 
  function save(){if(finished)return true;if(currentVideo&&byId[state.step].type==='video'&&Number.isFinite(currentVideo.currentTime))state.time=currentVideo.currentTime;let ok=false;try{ok=api.save(state);}catch{}if(!ok&&api.connected)warning('Не удалось сохранить прогресс. Сохранение повторится при следующем действии.');else warning('');return ok;}
  function el(tag,value,parent,cls){const e=document.createElement(tag);if(value!==undefined)e.textContent=String(value);if(cls)e.className=cls;if(parent)parent.append(e);return e;}
  function button(label,fn,parent,cls){const b=el('button',label,parent,cls);b.type='button';b.onclick=fn;return b;}
- function wrong(message){state.errors++;stats();$('feedback').textContent=exam?'Неверное действие. Попробуйте ещё раз.':message||byId[state.step].error||'Неверное действие. Попробуйте ещё раз.';$('feedback').className='error';save();}
+ function wrong(message){if(!learning)state.errors++;stats();$('feedback').textContent=exam?'Неверное действие. Попробуйте ещё раз.':message||byId[state.step].error||'Неверное действие. Попробуйте ещё раз.';$('feedback').className='error';save();}
  function go(id){if(!byId[id]){$('feedback').textContent='Переход не настроен. Обратитесь к автору курса.';return;}rememberScreen?.();if(currentVideo){if(byId[id].type==='choice'&&byId[id].video===state.step){state.frameId=state.step;state.frameTime=Number.isFinite(currentVideo.currentTime)?currentVideo.currentTime:0;try{const c=document.createElement('canvas');c.width=currentVideo.videoWidth;c.height=currentVideo.videoHeight;if(c.width&&c.height){c.getContext('2d').drawImage(currentVideo,0,0);frames.set(state.step,c.toDataURL('image/jpeg',.85));if(frames.size>6)frames.delete(frames.keys().next().value);}}catch{}}currentVideo.pause();currentVideo=null;}mark(state.step);state.step=id;state.time=0;save();render();}
  function overlay(e,r){if(r){e.style.position='absolute';e.style.left=r.x+'%';e.style.top=r.y+'%';e.style.width=r.w+'%';e.style.height=r.h+'%';}}
  function fit(e){e.onloadedmetadata=()=>{if(Number.isFinite(e.duration)&&e.duration>0){e.currentTime=Math.max(0,e.duration-.04);e.pause();}};e.onseeked=()=>e.pause();}
 
- function finishCourse(buttonElement,status){if(finishing||finished)return;finishing=true;buttonElement.disabled=true;let ok=false;const wasConnected=api.connected;try{ok=api.finish(state)===true;}catch{}if(!ok){status.textContent='Не удалось сохранить завершение. Проверьте соединение и нажмите «Завершить» ещё раз.';status.className='finish-status failure';buttonElement.disabled=false;finishing=false;return;}finished=true;finishing=false;warning('');buttonElement.textContent='Завершено';status.textContent=course.preview?'Просмотр завершён.':wasConnected?'Результат сохранён. Если окно не закрылось, закройте просмотр в системе обучения.':'Просмотр завершён. Для учёта результата открывайте курс из системы обучения.';status.className='finish-status';if(course.preview){try{window.parent?.postMessage({type:'scena-preview-finished',token:course.previewToken},'*');}catch{}return;}try{if(!window.parent||window.parent===window){if(typeof window.close==='function')window.close();}else window.parent.postMessage({type:'scena-course-finished',courseId:course.id,status:'completed'},'*');}catch{}}
+ function restartLearning(){
+  if(!learning||finished||finishing)return;if(!save())return;
+  generation++;if(currentVideo)currentVideo.pause();currentVideo=null;rememberScreen=null;
+  frames.clear();screenValues.clear();state=freshState();lastSave=0;render();save();
+ }
+ function finishCourse(buttonElement,status){if(finishing||finished)return;finishing=true;buttonElement.disabled=true;let ok=false;const wasConnected=api.connected;try{ok=api.finish(state)===true;}catch{}if(!ok){status.textContent='Не удалось сохранить завершение. Проверьте соединение и нажмите «Завершить» ещё раз.';status.className='finish-status failure';buttonElement.disabled=false;finishing=false;return;}finished=true;finishing=false;$('screen').querySelectorAll?.('.restart-button').forEach(b=>b.disabled=true);warning('');buttonElement.textContent='Завершено';status.textContent=course.preview?'Просмотр завершён.':wasConnected?'Результат сохранён. Если окно не закрылось, закройте просмотр в системе обучения.':'Просмотр завершён. Для учёта результата открывайте курс из системы обучения.';status.className='finish-status';if(course.preview){try{window.parent?.postMessage({type:'scena-preview-finished',token:course.previewToken},'*');}catch{}return;}try{if(!window.parent||window.parent===window){if(typeof window.close==='function')window.close();}else window.parent.postMessage({type:'scena-course-finished',courseId:course.id,status:'completed'},'*');}catch{}}
  function instruction(s){if(s.instruction?.trim())return s.instruction;return ({video:byId[s.next]?.showMode==='time'?'Посмотрите видео до появления вариантов и выберите действие.':'Посмотрите видео до конца и продолжите выполнение задания.',choice:s.selectBeforeContinue?'Выберите вариант ответа, затем нажмите «Далее».':'Выберите один из вариантов ответа.',form:'Заполните поля на экране и нажмите кнопку продолжения.',input:'Введите данные и нажмите «Далее».',click:'Нажмите нужную кнопку на экране программы.',message:'Ознакомьтесь с пояснением и продолжите.',slide:'Изучите слайд и нажмите «Далее».'})[s.type]||'';}
  let mediaViewport=null,mediaStage=null,mediaRatio=16/9,mediaZoom=1;
  function fitSelects(){
@@ -70,6 +77,8 @@ function run(course,runtimeFactory,visualMarkup){
  function renderGuide(step,parent){
   const guide=el('section',undefined,parent,'learner-guide');
   el('h2',step.title||'Как проходить тренажёр',guide);
+  if(learning)el('p','Ошибки объясняются без штрафов. После завершения можно пройти обучение заново.',guide,'guide-note');
+  if(exam)el('p','Экзамен: без подсветки и подсказок. Ошибки влияют на оценку. Кнопки повторного прохождения нет.',guide,'guide-note');
   el('p','Посмотрите, что означают элементы на экране.',guide,'guide-subtitle');
   const grid=el('div',undefined,guide,'guide-layout');
   const demo=el('div',undefined,grid,'guide-demo');
@@ -83,7 +92,7 @@ function run(course,runtimeFactory,visualMarkup){
   for(let i=0;i<6;i++)el('i',undefined,progress,i<3?'complete':'');
   const top=el('div',undefined,demo,'guide-demo-top');
   el('span','Прогресс',top);
-  marker(el('span','Ошибок: 0',top),2);
+  marker(el('span',learning?'Обучение · без оценки':'Ошибок: 0',top),2);
   marker(el('div','Задание | Заполните данные клиента',demo,'guide-task'),3);
   el('h3','Карточка клиента',demo);
   el('p','Телефон',demo);
@@ -105,14 +114,14 @@ function run(course,runtimeFactory,visualMarkup){
    el('span',i+1,item,'guide-number');
    const text=el('div',undefined,item);
    el('strong',separator<0?line:line.slice(0,separator),text);
-   if(separator>=0)el('p',line.slice(separator+1),text);
+   if(separator>=0)el('p',learning&&line==='Счётчик ошибок|Справа сверху показано количество неверных действий.'?'В обучении ошибки объясняются без подсчёта и снижения оценки.':line.slice(separator+1),text);
   }
   el('p','При переходе между экранами введённые данные сохраняются в текущем прохождении.',guide,'guide-note');
  }
  function render(){
   generation++;rememberScreen=null;mediaViewport=null;mediaStage=null;mediaZoom=1;const version=generation;const s=byId[state.step],area=$('screen');area.replaceChildren();area.className=['intro','end'].includes(s.type)?'terminal-screen':'content-screen';if($('title').parentElement)$('title').parentElement.hidden=s.type==='intro';if($('course-progress'))$('course-progress').hidden=s.type==='intro';requestFit();$('feedback').textContent='';$('feedback').className='';$('task').textContent=instruction(s);$('step').textContent=s.type==='video'?'Видеоматериал':s.type==='choice'?'Вопрос':s.type==='message'?'Пояснение':s.type==='slide'?'Презентация':'Практическое задание';stats();progress();if($('task-title'))$('task-title').textContent=s.taskTitle||({video:'Просмотр видео',choice:'Выбор решения',form:'Работа в программе',click:'Работа в программе',message:'Изучение материала',slide:'Презентация'})[s.type]||'Учебный шаг';if($('task-banner'))$('task-banner').hidden=['end','intro'].includes(s.type)||s.template==='guide';if($('work-bar'))$('work-bar').hidden=['end','intro'].includes(s.type);
   if(s.type==='return'){
-   if(s.penalty!==false)state.errors++;
+   if(!learning&&s.penalty!==false)state.errors++;
    // Return nodes are explicit in the graph; target must be a choice, so no automatic loop.
    go(s.next);return;
   }
@@ -131,7 +140,7 @@ function run(course,runtimeFactory,visualMarkup){
    el('span','Корпоративный университет',bottom);
    return;
   }
-  if(s.type==='end'){mark(s.id);progress();state.done=true;state.score=Math.max(0,100-state.errors*(Number.isFinite(course.penalty)?course.penalty:10));const card=el('div',undefined,area,'completion-card');el('div','✓',card,'completion-icon');el('div',course.previewScope==='step'?'ПРОВЕРКА ШАГА ЗАВЕРШЕНА':exam?'ЭКЗАМЕН ЗАВЕРШЁН':'ОБУЧЕНИЕ ЗАВЕРШЕНО',card,'completion-kicker');el('h2',course.title,card,'completion-title');el('p',s.body||'Вы прошли все необходимые задания.',card,'completion-description');const metrics=el('div',undefined,card,'completion-metrics');el('span','Ошибок: '+state.errors,metrics);el('span','Результат: '+state.score+' из 100',metrics);el('p',course.preview?'Нажмите «Завершить», чтобы закрыть предпросмотр.':'Нажмите «Завершить», чтобы закончить просмотр и передать результат.',card,'completion-hint');const status=el('p','',card,'finish-status');status.setAttribute('role','status');const endButton=button('Завершить',()=>finishCourse(endButton,status),card,'finish-button');save();return;}
+  if(s.type==='end'){mark(s.id);progress();state.done=true;state.score=learning?0:Math.max(0,100-state.errors*(Number.isFinite(course.penalty)?course.penalty:10));const card=el('div',undefined,area,'completion-card');el('div','✓',card,'completion-icon');el('div',course.previewScope==='step'?'ПРОВЕРКА ШАГА ЗАВЕРШЕНА':exam?'ЭКЗАМЕН ЗАВЕРШЁН':'ОБУЧЕНИЕ ЗАВЕРШЕНО',card,'completion-kicker');el('h2',course.title,card,'completion-title');el('p',s.body||'Вы прошли все необходимые задания.',card,'completion-description');const metrics=el('div',undefined,card,'completion-metrics');if(learning)el('span','Обучение завершено · без оценки',metrics);else{el('span','Ошибок: '+state.errors,metrics);el('span','Результат: '+state.score+' из 100',metrics);}el('p',learning?'Можно пройти обучение заново или нажать «Завершить», чтобы закрыть прохождение.':course.preview?'Нажмите «Завершить», чтобы закрыть предпросмотр.':'Нажмите «Завершить», чтобы закончить просмотр и передать результат.',card,'completion-hint');const status=el('p','',card,'finish-status');status.setAttribute('role','status');const endButton=button('Завершить',()=>finishCourse(endButton,status),card,'finish-button');if(learning)button('Пройти заново',restartLearning,card,'restart-button');save();return;}
   const viewport=el('div',undefined,area,'media-viewport');const stage=el('div',undefined,viewport,'stage');const tools=footer(area);let controls=stage,confirmForm=null;
   if(s.background){const img=el('img',undefined,stage);img.src=s.background;img.alt='Экран программы';watchMedia(stage,viewport);img.onload=()=>{if(version!==generation)return;mediaRatio=img.naturalWidth/img.naturalHeight||16/9;requestFit();};const zoom=button('Увеличить',()=>{mediaZoom=mediaZoom===1?2:1;zoom.textContent=mediaZoom===1?'Увеличить':'Вписать';viewport.classList.toggle('zoomed',mediaZoom>1);fitMedia();},tools,'zoom-button');img.onerror=()=>{$('feedback').textContent='Не удалось загрузить скриншот.';};stage.classList.add('screenshot');}
   else{controls=el('div',undefined,stage,'controls');}

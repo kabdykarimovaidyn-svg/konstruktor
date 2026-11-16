@@ -51,7 +51,7 @@ const browserNode=browserTemplate.node;browserNode.background='media/browser.svg
 browserProject.assets[browserNode.background]={name:'Браузер.svg',blob:new Blob([browserTemplate.svg],{type:'image/svg+xml'})};
 M.insert(browserProject,[browserNode],browserEnd.id,'s1');
 assert.equal(browserNode.type,'form');assert.equal(browserNode.fields[0].rule,'url');
-assert.equal(browserNode.fields[0].expected,'crm.example.com');assert.equal(browserNode.showNext,false);
+assert.equal(browserNode.fields[0].expected,'example.com');assert.equal(browserNode.showNext,false);
 assert.equal(browserNode.countMissClicks,false);assert.equal(browserNode.next,browserEnd.id);
 assert.ok(browserTemplate.svg.includes('Новая вкладка'));assert.ok(!browserTemplate.svg.includes('<script'));
 assert.equal(M.inspect(browserProject).problems.length,0);
@@ -62,3 +62,10 @@ M.insert(branches,[branchA,branchB],branchEnd.id,'s1');branches.settings.flow='b
 const branchTarget=branchA.next,inserted=M.node('message','s1');M.insert(branches,[inserted],branchA.id,'s1');
 assert.equal(branchA.next,branchTarget);assert.deepEqual(branches.steps.map(n=>n.id),[branchA.id,inserted.id,branchB.id,branchEnd.id]);
 console.log('Добавление после выбранного шага сохраняет существующие ручные связи.');
+
+const modeProject=M.project(),modeSnapshot=JSON.stringify(modeProject),learnPackage=M.exportCourse(modeProject,'learn'),examPackage=M.exportCourse(modeProject,'test');
+assert.notEqual(learnPackage.id,examPackage.id);assert.equal(learnPackage.id,M.exportCourse(modeProject,'learn').id);
+assert.equal(learnPackage.mode,'learn');assert.equal(examPackage.mode,'test');assert.equal(JSON.stringify(modeProject),modeSnapshot);
+assert.ok(M.exportCourse({...modeProject,id:'x'.repeat(80)},'learn').id.length<=80);
+assert.equal(ScenaSCORM.validate(learnPackage),true);assert.equal(ScenaSCORM.validate(examPackage),true);
+console.log('Выгрузки обучения/экзамена: отдельные стабильные ID и сохранность исходного проекта проверены.');

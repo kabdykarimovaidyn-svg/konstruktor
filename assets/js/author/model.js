@@ -13,10 +13,10 @@ function project(){const end=node('end','s1');return {schema:2,id:uid('course'),
 function node(type,group){const id=uid('step');const n={id,type,title:types[type],instruction:'',group};if(type!=='end')n.next='';if(type==='intro'){n.body='Добро пожаловать! Нажмите «Начать», чтобы приступить.';n.button='Начать';}if(type==='slide')n.button='Далее';if(type==='video')n.src='';if(type==='choice'){delete n.next;n.options=[{id:uid('opt'),label:'Вариант 1',next:''},{id:uid('opt'),label:'Вариант 2',next:''}];n.video='';}if(type==='form'){n.fields=[field()];n.error='Проверьте заполнение полей.';n.button='Далее';}if(type==='click'){n.rect={x:35,y:60,w:30,h:12};n.error='Нажмите на нужную область.';n.label='Продолжить';}if(type==='message'){n.body='Введите пояснение или текст ситуации.';n.button='Продолжить';}if(type==='return'){n.title='Повторить вопрос';n.penalty=true;}return n;}
 function browserTemplate(group){
  const n=node('form',group),r=(x,y,w,h)=>({x:x/14.4,y:y/9,w:w/14.4,h:h/9});
- n.title='Браузер — адрес CRM';n.instruction='Введите адрес CRM в адресную строку и нажмите Enter или стрелку справа.';
- n.fields=[{...field(),label:'Адрес CRM',rule:'url',expected:'crm.example.com',placeholder:'Введите адрес CRM',rect:r(166,66,1050,40)}];
+ n.title='Браузер — ввод адреса сайта';n.instruction='Введите адрес сайта в адресную строку и нажмите Enter или стрелку справа.';
+ n.fields=[{...field(),label:'Адрес сайта',rule:'url',expected:'example.com',placeholder:'Введите адрес сайта',rect:r(166,66,1050,40)}];
  n.button='Перейти';n.submitRect=r(1228,66,48,40);n.showNext=false;n.countMissClicks=false;
- n.error='Проверьте адрес CRM: домен и путь должны совпадать с заданием.';
+ n.error='Проверьте адрес сайта: домен и путь должны совпадать с заданием.';
  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
  <defs><linearGradient id="page" x2="0" y2="1"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#f4f8fc"/></linearGradient></defs>
  <rect width="1440" height="900" rx="12" fill="url(#page)"/>
@@ -45,6 +45,11 @@ function browserTemplate(group){
 function field(){return {id:uid('field'),label:'Поле ввода',rule:'exact',expected:'',rect:{x:20,y:35,w:60,h:10}};}
 function links(n){const primary= n.type==='end'?[]:n.options?n.options.filter(o=>!o.wrong).map(o=>({key:o.id||String(n.options.indexOf(o)),label:o.label,to:o.next})): [{key:'next',label:n.type==='return'?'Повторить выбор':'Далее',to:n.next}];return [...primary,...(n.jumps||[]).map(j=>({key:j.id,label:j.label,to:j.next}))];}
 function toCourse(p){return {coverLogo:brandLogo,id:p.id,title:p.title,start:p.start,mode:p.settings.mode,penalty:p.settings.penalty,theme:structuredClone(p.theme||{}),steps:p.steps.map(n=>{const s=structuredClone(n);delete s.group;return s;})};}
+// Stable mode-specific package IDs isolate LMS progress without changing the editable project.
+function exportCourse(p,mode=p.settings.mode){
+ if(!['learn','test'].includes(mode))throw Error('Выберите обучение или экзамен.');
+ const course=toCourse(p);course.id=p.id.slice(0,74)+'-'+mode;course.mode=mode;return course;
+}
 function previewCourse(p,id){const current=p.steps.find(n=>n.id===id);if(!current)throw Error('Выберите шаг.');const finish={id:'preview_finish',type:'end',title:'Проверка шага завершена',body:'Этот шаг работает. Закройте предпросмотр, чтобы продолжить редактирование.'};while(p.steps.some(n=>n.id===finish.id))finish.id+='x';const nodes=new Map();function add(n){if(!n||nodes.has(n.id))return;const copy=structuredClone(n);nodes.set(copy.id,copy);if(copy.type==='return'){const question=p.steps.find(n=>n.id===copy.next&&n.type==='choice');if(!question)throw Error('Выберите вопрос для возврата.');add(question);}else if(copy.type!=='end'){if(copy.jumps)copy.jumps.forEach(j=>j.next=finish.id);if(copy.options)copy.options.forEach(o=>{if(!o.wrong)o.next=finish.id;});else copy.next=finish.id;}if(copy.video){const video=p.steps.find(n=>n.id===copy.video&&n.type==='video');if(!video)throw Error('Выберите видео для последнего кадра.');add(video);}}add(current);if(current.type==='video'&&!current.options){const question=p.steps.find(n=>n.id===current.next&&n.type==='choice');if(question){add(question);nodes.get(current.id).next=question.id;}}const dependencies=[],visited=new Set(),visiting=new Set();function collect(n){if(visiting.has(n.id))throw Error('Поля не могут ссылаться друг на друга по кругу.');if(visited.has(n.id))return;visiting.add(n.id);for(const f of n.fields||[])for(const ref of [f.rule==='match'?f.match:null,f.autofill].filter(Boolean))if(ref.stepId!==n.id){const source=p.steps.find(s=>s.id===ref.stepId);if(!source)throw Error('Выберите исходное поле для сравнения.');collect(source);add(source);if(!dependencies.includes(source.id))dependencies.push(source.id);}visiting.delete(n.id);visited.add(n.id);}collect(current);dependencies.forEach((id,index)=>{nodes.get(id).next=dependencies[index+1]||current.id;});return {...toCourse(p),previewScope:'step',previewDependencies:dependencies.length>0,start:dependencies[0]||current.id,steps:[...nodes.values(),finish]};}
 // Preview the real route from the selection. Only prerequisite field screens are prepended.
 function previewFrom(p,id){
@@ -139,5 +144,5 @@ function addGuide(p){
 function addIntro(p){if(p.steps.some(n=>n.type==='intro'))return;const intro=node('intro',p.groups[0].id);intro.next=p.start;p.steps.unshift(intro);p.start=intro.id;p.layout[intro.id]={x:60,y:20};sequence(p);}
 function fieldCandidates(p,stepId,fieldId){return FieldRules.candidates({...toCourse(p),steps:ordered(p)},stepId,fieldId);}
 function usedFields(p){return FieldRules.remembered(toCourse(p));}
-root.ScenaModel={brandLogo,guideNode,addGuide,addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,browserTemplate,field,links,toCourse,previewCourse,previewFrom,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
+root.ScenaModel={brandLogo,guideNode,addGuide,addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,browserTemplate,field,links,toCourse,exportCourse,previewCourse,previewFrom,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
 })(typeof window!=='undefined'?window:globalThis);

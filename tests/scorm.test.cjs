@@ -20,6 +20,12 @@ function fakeLMS(values={},reject=''){
  const completed={...state,step:'end',done:true,score:90};bridge.save(completed);assert.equal(lms.data['cmi.core.lesson_status'],'completed');assert.equal(lms.data['cmi.core.score.raw'],'90');assert.equal(lms.data['cmi.core.exit'],'');assert.match(lms.data['cmi.core.session_time'],/^\d{4}:\d{2}:\d{2}\.\d{2}$/);
  assert.equal(bridge.finish(completed),true);assert.equal(bridge.finish(completed),true);assert.equal(lms.calls.filter(c=>c[0]==='finish').length,1);
  const resumed=runtime(win);assert.equal(JSON.parse(resumed.get('cmi.suspend_data')).step,'end');assert.equal(lms.data['cmi.core.lesson_status'],'completed');
+ const learningLMS=fakeLMS(),learningWin={API:learningLMS.API};learningWin.parent=learningWin;
+ const learningRuntime=runtime(learningWin),learningDone={...completed,scored:false,mode:'learn',errors:0,score:0};
+ assert.equal(learningRuntime.save(learningDone),true);assert.equal(learningLMS.data['cmi.core.lesson_status'],'completed');
+ assert.equal(learningLMS.calls.some(c=>c[0]==='set'&&c[1].startsWith('cmi.core.score.')),false);
+ assert.equal(learningRuntime.save({...learningDone,done:false,step:'a'}),true);
+ assert.equal(learningLMS.data['cmi.core.lesson_status'],'completed');
  const broken=fakeLMS({},'cmi.suspend_data'),brokenWin={API:broken.API};brokenWin.parent=brokenWin;assert.equal(runtime(brokenWin).save(state),false);
  assert.equal(runtime(brokenWin).finish(state),false);assert.equal(broken.calls.filter(c=>c[0]==='finish').length,0);const retry=fakeLMS(),rw={API:retry.API};rw.parent=rw;const rb=runtime(rw);retry.API.LMSFinish=()=> 'false';assert.equal(rb.finish(completed),false);assert.equal(rb.connected,true);retry.API.LMSFinish=()=> 'true';assert.equal(rb.finish(completed),true);const initFail=fakeLMS();initFail.API.LMSInitialize=()=> 'false';const failWin={API:initFail.API};failWin.parent=failWin;assert.equal(runtime(failWin).connected,false);assert.equal(runtime(failWin).finish(completed),false);assert.equal(initFail.calls.filter(c=>c[0]==='set').length,0);
  const noAPI={};noAPI.parent=noAPI;assert.equal(runtime(noAPI).connected,false);
