@@ -15,6 +15,24 @@ function field(){return {id:uid('field'),label:'Поле ввода',rule:'exact
 function links(n){const primary= n.type==='end'?[]:n.options?n.options.filter(o=>!o.wrong).map(o=>({key:o.id||String(n.options.indexOf(o)),label:o.label,to:o.next})): [{key:'next',label:n.type==='return'?'Повторить выбор':'Далее',to:n.next}];return [...primary,...(n.jumps||[]).map(j=>({key:j.id,label:j.label,to:j.next}))];}
 function toCourse(p){return {coverLogo:brandLogo,id:p.id,title:p.title,start:p.start,mode:p.settings.mode,penalty:p.settings.penalty,theme:structuredClone(p.theme||{}),steps:p.steps.map(n=>{const s=structuredClone(n);delete s.group;return s;})};}
 function previewCourse(p,id){const current=p.steps.find(n=>n.id===id);if(!current)throw Error('Выберите шаг.');const finish={id:'preview_finish',type:'end',title:'Проверка шага завершена',body:'Этот шаг работает. Закройте предпросмотр, чтобы продолжить редактирование.'};while(p.steps.some(n=>n.id===finish.id))finish.id+='x';const nodes=new Map();function add(n){if(!n||nodes.has(n.id))return;const copy=structuredClone(n);nodes.set(copy.id,copy);if(copy.type==='return'){const question=p.steps.find(n=>n.id===copy.next&&n.type==='choice');if(!question)throw Error('Выберите вопрос для возврата.');add(question);}else if(copy.type!=='end'){if(copy.jumps)copy.jumps.forEach(j=>j.next=finish.id);if(copy.options)copy.options.forEach(o=>{if(!o.wrong)o.next=finish.id;});else copy.next=finish.id;}if(copy.video){const video=p.steps.find(n=>n.id===copy.video&&n.type==='video');if(!video)throw Error('Выберите видео для последнего кадра.');add(video);}}add(current);if(current.type==='video'&&!current.options){const question=p.steps.find(n=>n.id===current.next&&n.type==='choice');if(question){add(question);nodes.get(current.id).next=question.id;}}const dependencies=[],visited=new Set(),visiting=new Set();function collect(n){if(visiting.has(n.id))throw Error('Поля не могут ссылаться друг на друга по кругу.');if(visited.has(n.id))return;visiting.add(n.id);for(const f of n.fields||[])for(const ref of [f.rule==='match'?f.match:null,f.autofill].filter(Boolean))if(ref.stepId!==n.id){const source=p.steps.find(s=>s.id===ref.stepId);if(!source)throw Error('Выберите исходное поле для сравнения.');collect(source);add(source);if(!dependencies.includes(source.id))dependencies.push(source.id);}visiting.delete(n.id);visited.add(n.id);}collect(current);dependencies.forEach((id,index)=>{nodes.get(id).next=dependencies[index+1]||current.id;});return {...toCourse(p),previewScope:'step',previewDependencies:dependencies.length>0,start:dependencies[0]||current.id,steps:[...nodes.values(),finish]};}
+// Preview the real route from the selection. Only prerequisite field screens are prepended.
+function previewFrom(p,id){
+ const course=toCourse(p),byId=new Map(course.steps.map(s=>[s.id,s]));
+ if(!byId.has(id))throw Error('Выберите шаг.');
+ const reachable=new Set(),queue=[id];
+ while(queue.length){const key=queue.pop();if(reachable.has(key))continue;const n=byId.get(key);if(!n)continue;reachable.add(key);links(n).forEach(e=>queue.push(e.to));if(n.video)queue.push(n.video);}
+ const dependencies=[],visiting=new Set(),visited=new Set();
+ function collect(n){if(visited.has(n.id))return;if(visiting.has(n.id))throw Error('Поля не могут ссылаться друг на друга по кругу.');visiting.add(n.id);
+  for(const f of n.fields||[])for(const ref of [f.rule==='match'?f.match:null,f.autofill].filter(Boolean)){
+   if(ref.stepId===n.id)continue;const source=byId.get(ref.stepId);if(!source)throw Error('Выберите исходное поле.');
+   if(!reachable.has(source.id)){collect(source);if(!dependencies.includes(source.id))dependencies.push(source.id);}
+  }visiting.delete(n.id);visited.add(n.id);
+ }
+ for(const key of reachable)collect(byId.get(key));
+ dependencies.forEach((key,i)=>{const n=byId.get(key);n.next=dependencies[i+1]||id;delete n.jumps;});
+ course.start=dependencies[0]||id;course.steps=course.steps.filter(n=>reachable.has(n.id)||dependencies.includes(n.id));
+ course.previewScope='from';course.previewDependencies=dependencies.length>0;return course;
+}
 function inspect(p){const problems=[],warnings=[],ids=new Set(p.steps.map(s=>s.id));
  if(!p.title.trim())problems.push({text:'Укажите название курса.'});
  if(!ids.has(p.start))problems.push({text:'Выберите стартовый шаг.'});
@@ -29,6 +47,7 @@ function inspect(p){const problems=[],warnings=[],ids=new Set(p.steps.map(s=>s.i
   if(n.type==='form'&&(!n.fields?.length))add('добавьте поле ввода.');if(n.type==='form'&&n.background&&n.fields?.some(f=>!f.rect))add('выделите области всех полей на скриншоте.');
   if(n.jumps?.some(j=>!j.rect||!n.background||!p.steps.some(t=>t.id===j.next)))add('для перехода укажите область и целевой шаг.');
   for(const edge of links(n)){if(!edge.to)add('не настроен переход «'+edge.label+'».');else if(!ids.has(edge.to))add('переход ведёт к удалённому шагу.');}
+  if(n.type==='form'&&n.fields?.some(f=>f.kind!=='selection'||f.selectionRequired===true)&&n.jumps?.length&&n.jumps.every(j=>j.checkBeforeJump===false)&&!n.submitRect&&n.showNext!==true)warnings.push({id:n.id,text:n.title+': все области перехода работают без проверки задания. Если это не свободные вкладки, выберите «Проверить задание и перейти».'});
   if(n.type==='return'&&n.next&&!p.steps.some(s=>s.id===n.next&&s.type==='choice'))add('возврат должен вести к точке выбора.');
  }
  const seen=new Set(),stack=[p.start];while(stack.length){const id=stack.pop();if(seen.has(id)||!ids.has(id))continue;seen.add(id);links(p.steps.find(n=>n.id===id)).forEach(e=>stack.push(e.to));}
@@ -88,5 +107,5 @@ function addGuide(p){
 function addIntro(p){if(p.steps.some(n=>n.type==='intro'))return;const intro=node('intro',p.groups[0].id);intro.next=p.start;p.steps.unshift(intro);p.start=intro.id;p.layout[intro.id]={x:60,y:20};sequence(p);}
 function fieldCandidates(p,stepId,fieldId){return FieldRules.candidates({...toCourse(p),steps:ordered(p)},stepId,fieldId);}
 function usedFields(p){return FieldRules.remembered(toCourse(p));}
-root.ScenaModel={brandLogo,guideNode,addGuide,addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,field,links,toCourse,previewCourse,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
+root.ScenaModel={brandLogo,guideNode,addGuide,addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,field,links,toCourse,previewCourse,previewFrom,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
 })(typeof window!=='undefined'?window:globalThis);

@@ -6,7 +6,7 @@ const bridge2={...bridge,get:()=>JSON.stringify({v:2,course:'branches',step:'int
 console.log('Проигрыватель v2: отложенные последствия, возврат без повтора, несколько полей и восстановление видео проверены.');
 const screens={id:'screens',title:'Screens',start:'main',steps:[
  {id:'main',type:'form',background:'main.png',fields:[{id:'phone',label:'Phone',rule:'any',rect:{x:5,y:10,w:30,h:10}}],next:'finish',
-  jumps:[{id:'orders',label:'Orders',next:'orders',rect:{x:50,y:5,w:20,h:10}}]},
+  jumps:[{id:'orders',label:'Orders',next:'orders',checkBeforeJump:false,rect:{x:50,y:5,w:20,h:10}}]},
  {id:'orders',type:'click',background:'orders.png',jumps:[{id:'back',label:'Back',next:'main',rect:{x:5,y:5,w:15,h:10}}]},
  {id:'finish',type:'end'}
 ]};
@@ -23,7 +23,7 @@ assert.equal(screenPlayer.getState().errors,0);
 assert.ok(!JSON.stringify(saved).includes('+7 701'));
 console.log('Переход между скриншотами сохраняет незавершённый ввод в сеансе.');
 // A hotspot can finish the course directly, without a screenshot destination.
-screens.steps[0].jumps.push({id:'done',label:'Finish here',next:'finish',rect:{x:70,y:5,w:20,h:10}});
+screens.steps[0].jumps.push({id:'done',label:'Finish here',next:'finish',checkBeforeJump:false,rect:{x:70,y:5,w:20,h:10}});
 assert.equal(ScenaSCORM.validate(screens),true);
 const finishViaArea=window.ScenaPlayer.run(screens,()=>bridge);
 click('Finish here');
@@ -140,3 +140,43 @@ const optionalSelection=window.ScenaPlayer.run(selectionCourse,()=>bridge);
 click('Готово');
 assert.equal(optionalSelection.getState().done,true);
 console.log('Обязательный выбор блокирует область перехода; после выбора открывается её цель. Свободные вкладки сохраняются.');
+
+// Wrong dropdown answers must block default hotspots even when miss clicks are free.
+const dropdownCourse={id:'dropdown',title:'Список',start:'main',steps:[
+ {id:'main',type:'form',background:'main.png',countMissClicks:false,fields:[{id:'list',kind:'select',label:'Статус',choices:'Верно\nНеверно',expected:'Верно',rect:{x:10,y:10,w:30,h:10}}],jumps:[{id:'continue',label:'Продолжить проверку',next:'end',rect:{x:60,y:60,w:20,h:10}}]},
+ {id:'end',type:'end'}]};
+const dropdownPlayer=window.ScenaPlayer.run(dropdownCourse,()=>bridge);
+stage=nodes.screen.all().find(e=>e.className==='stage');
+stage.handlers.click({target:stage});
+assert.equal(dropdownPlayer.getState().errors,0);
+all('select')[0].value='Неверно';
+click('Продолжить проверку');
+assert.equal(dropdownPlayer.getState().step,'main');
+assert.equal(dropdownPlayer.getState().errors,1);
+all('select')[0].value='Верно';
+click('Продолжить проверку');
+assert.equal(dropdownPlayer.getState().done,true);
+dropdownCourse.steps[0].jumps[0].checkBeforeJump=false;
+const freeDropdown=window.ScenaPlayer.run(dropdownCourse,()=>bridge);
+all('select')[0].value='Неверно';
+click('Продолжить проверку');
+assert.equal(freeDropdown.getState().done,true);
+console.log('Список проверяется перед переходом независимо от штрафа за клик мимо; явная свободная навигация сохранена.');
+// Modes change presentation, never bypass correctness or reveal the failed field in exams.
+document.documentElement=new E('html');document.documentElement.style.setProperty=()=>{};
+for(const mode of ['learn','test']){
+ const c=structuredClone(dropdownCourse);c.mode=mode;delete c.steps[0].jumps[0].checkBeforeJump;
+ c.steps[0].fields[0].error='Выберите рабочий статус';
+ const modePlayer=window.ScenaPlayer.run(c,()=>bridge);
+ assert.equal(document.documentElement['data-course-mode'],mode);
+ all('select')[0].value='Неверно';click('Продолжить проверку');
+ assert.equal(modePlayer.getState().step,'main');assert.equal(modePlayer.getState().errors,1);
+ if(mode==='test'){
+  assert.equal(all('select')[0]['aria-invalid'],undefined);
+  assert.ok(!nodes.feedback.textContent.includes('Статус'));
+  assert.ok(!nodes.feedback.textContent.includes('рабочий'));
+ }else{assert.equal(all('select')[0]['aria-invalid'],'true');assert.equal(nodes.feedback.textContent,'Выберите рабочий статус');}
+ all('select')[0].value='Верно';click('Продолжить проверку');assert.equal(modePlayer.getState().done,true);
+ assert.equal(modePlayer.getState().score,90);
+}
+console.log('Обучение и экзамен: одинаковая проверка и оценка, подсказки и подсветка ошибки только в обучении.');
