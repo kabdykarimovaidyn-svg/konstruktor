@@ -476,16 +476,20 @@ function run(course,runtimeFactory,visualMarkup){
  function finishCourse(buttonElement,status){if(finishing||finished)return;finishing=true;buttonElement.disabled=true;let ok=false;const wasConnected=api.connected;try{ok=api.finish(state)===true;}catch{}if(!ok){status.textContent='Не удалось сохранить завершение. Проверьте соединение и нажмите «Завершить» ещё раз.';status.className='finish-status failure';buttonElement.disabled=false;finishing=false;return;}finished=true;finishing=false;$('screen').querySelectorAll?.('.restart-button').forEach(b=>b.disabled=true);warning('');buttonElement.textContent='Завершено';status.textContent=course.preview?'Просмотр завершён.':wasConnected?'Результат сохранён. Если окно не закрылось, закройте просмотр в системе обучения.':'Просмотр завершён. Для учёта результата открывайте курс из системы обучения.';status.className='finish-status';if(course.preview){try{window.parent?.postMessage({type:'scena-preview-finished',token:course.previewToken},'*');}catch{}return;}try{if(!window.parent||window.parent===window){if(typeof window.close==='function')window.close();}else window.parent.postMessage({type:'scena-course-finished',courseId:course.id,status:'completed'},'*');}catch{}}
  function instruction(s){if(s.instruction?.trim())return s.instruction;return ({video:byId[s.next]?.showMode==='time'?'Посмотрите видео до появления вариантов и выберите действие.':'Посмотрите видео до конца и продолжите выполнение задания.',choice:s.selectBeforeContinue?'Выберите вариант ответа, затем нажмите «Далее».':'Выберите один из вариантов ответа.',form:'Заполните поля на экране и нажмите кнопку продолжения.',input:'Введите данные и нажмите «Далее».',click:'Нажмите нужную кнопку на экране программы.',message:'Ознакомьтесь с пояснением и продолжите.',slide:'Изучите слайд и нажмите «Далее».'})[s.type]||'';}
  let mediaViewport=null,mediaStage=null,mediaRatio=16/9,mediaZoom=1;
- function fitSelects(){
+ function fitFields(){
   if(!mediaStage?.querySelectorAll)return;
-  for(const input of mediaStage.querySelectorAll('select')){
+  for(const input of mediaStage.querySelectorAll('select,input[type=text],input[type=password]')){
    const height=input.getBoundingClientRect().height;
-   input.style.fontSize=Math.max(12,Math.min(18,height*.6))+'px';
-   input.style.padding='0 4px';
-   input.style.lineHeight='normal';
+   if(!height)continue;
+   // Size each screenshot field from its own rectangle, including zoom/resize.
+   const font=Math.max(1,Math.min(24*mediaZoom,Math.max(1,height-2)*.58));
+   input.style.fontSize=font+'px';
+   input.style.padding='0 '+Math.min(6,height*.16)+'px';
+   input.style.lineHeight='1.2';
+   input.style.minHeight='0';
   }
  }
- function fitMedia(){if(!mediaViewport?.getBoundingClientRect||!mediaStage)return;const box=mediaViewport.getBoundingClientRect(),cs=window.getComputedStyle(mediaViewport),innerW=mediaViewport.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),innerH=mediaViewport.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom),w=Math.max(1,Math.floor(Math.min(innerW,innerH*mediaRatio)-1))*mediaZoom;mediaStage.style.width=w+'px';mediaStage.style.height=w/mediaRatio+'px';if(mediaStage.style.setProperty)mediaStage.style.setProperty('--field-font',Math.max(9,Math.min(20,w/60))+'px');fitSelects();}
+ function fitMedia(){if(!mediaViewport?.getBoundingClientRect||!mediaStage)return;const box=mediaViewport.getBoundingClientRect(),cs=window.getComputedStyle(mediaViewport),innerW=mediaViewport.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),innerH=mediaViewport.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom),w=Math.max(1,Math.floor(Math.min(innerW,innerH*mediaRatio)-1))*mediaZoom;mediaStage.style.width=w+'px';mediaStage.style.height=w/mediaRatio+'px';if(mediaStage.style.setProperty)mediaStage.style.setProperty('--field-font',Math.max(9,Math.min(20,w/60))+'px');fitFields();}
  function watchMedia(stage,viewport,ratio=16/9){mediaStage=stage;mediaViewport=viewport;mediaRatio=ratio;fitMedia();}
  function footer(area){const tools=el('div',undefined,area,'screen-tools');el('span',$('step').textContent,tools,'page-caption');return tools;}
  function resizeLayout(){fitMedia();}
