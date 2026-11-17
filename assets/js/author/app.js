@@ -108,12 +108,12 @@ function renderInspector(){
   tools+='<div class="tool-group-label">Картинка</div><div class="tool-palette">'+toolButton('image','Загрузить картинку','data-upload-image','image',!n.background)+'</div>';
   out+=section('add','Добавить элемент',tools,true);
   const elements=ScenaAreas.items?.(n)||[];
-  if(elements.length){
+  if(elements.length||ScenaAreas.canPaste?.()){
    const kindLabel=item=>item.field?({text:'Поле ввода',select:'Список',checkbox:'Галочка',radio:'Переключатели',selection:'Выбор'}[item.field.kind||'text']):
     item.jump?'Переход':item.visual?(item.visual.type==='image'?'Картинка':item.visual.type==='text'?'Текст':'Фигура'):item.option?'Ответ':'Кнопка';
    out+='<div class="applied-elements" role="group" aria-label="Добавленные элементы"><ul class="applied-element-list">'+elements.map(item=>
-    '<li><button type="button" data-applied-key="'+h(item.key)+'" aria-pressed="'+(selectedEntry?.key===item.key)+'">'+
-    '<span>'+h(item.label)+'</span><small>'+h(kindLabel(item))+'</small></button></li>').join('')+'</ul></div>';
+    '<li><button type="button" data-applied-key="'+h(item.key)+'" aria-pressed="'+(ScenaAreas.selectedKeys?.().includes(item.key)??(selectedEntry?.key===item.key))+'">'+
+    '<span>'+h(item.label)+'</span><small>'+h(kindLabel(item))+'</small></button></li>').join('')+'</ul><p class="small">Shift + нажатие — выбрать несколько элементов. Ctrl/Cmd+C, V — копировать и вставить.</p><div class="applied-element-actions"><span>Выбрано: '+(ScenaAreas.selectedKeys?.().length||0)+'</span><button data-copy-elements '+(ScenaAreas.selectedKeys?.().length?'':'disabled')+'>Копировать</button><button data-paste-elements '+(ScenaAreas.canPaste?.()?'':'disabled')+'>Вставить</button></div></div>';
   }
  }
  if(n.type==='form'&&!selectedVisual&&(!selectedEntry||selectedEntry.field)){
@@ -393,12 +393,13 @@ $('inspector-content').addEventListener('change',e=>{if(e.target.hasAttribute('d
 $('inspector-content').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!node())return;const d=b.dataset,n=node();
  if(d.appliedKey){
   inspectorSections.set(n.id+':add',false);
-  inspectorSections.set(n.id+':selected-jump',true);
+  inspectorSections.set(n.id+':selected-jump',true);if(d.appliedKey.startsWith('f:'))inspectorSections.set(n.id+':field',true);if(d.appliedKey.startsWith('v:')){inspectorSections.set(n.id+':visual',true);inspectorSections.set(n.id+':design',true);}
   if(['click','submit'].includes(d.appliedKey))inspectorSections.set(n.id+':continue',true);
   if(d.appliedKey.startsWith('o:')){inspectorSections.set(n.id+':answers',true);inspectorSections.set(n.id+':option-'+d.appliedKey.slice(2),true);}
-  ScenaAreas.pickEntry(d.appliedKey);return;
+  ScenaAreas.pickEntry(d.appliedKey,e.shiftKey);$('inspector-content').querySelector('[data-applied-key="'+d.appliedKey+'"]')?.focus({preventScroll:true});return;
  }
 
+ if('copyElements'in d){ScenaAreas.copy();renderInspector();return;}if('pasteElements'in d){ScenaAreas.paste();return;}
  if(d.uploadImage){if(!n.background)return;uploadTarget={mode:'overlay-image',id:n.id,project:p.id};$('asset-input').accept='image/png,image/jpeg,image/webp';$('asset-input').multiple=false;$('asset-input').value='';$('asset-input').click();return;}
  if(d.addVisual){
   if((n.decorations?.length||0)>=50){notice('Доступно до 50 фигур и текстовых блоков.');return;}

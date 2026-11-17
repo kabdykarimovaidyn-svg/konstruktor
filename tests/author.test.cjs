@@ -69,3 +69,9 @@ assert.equal(learnPackage.mode,'learn');assert.equal(examPackage.mode,'test');as
 assert.ok(M.exportCourse({...modeProject,id:'x'.repeat(80)},'learn').id.length<=80);
 assert.equal(ScenaSCORM.validate(learnPackage),true);assert.equal(ScenaSCORM.validate(examPackage),true);
 console.log('Выгрузки обучения/экзамена: отдельные стабильные ID и сохранность исходного проекта проверены.');
+const copiedJumpProject=M.project(),withJump=M.node('form','s1');withJump.fields[0].rule='any';withJump.background='media/screen.png';
+withJump.jumps=[{id:'unset_copy',label:'Скопированная область',rect:{x:10,y:10,w:20,h:10},next:''}];
+M.insert(copiedJumpProject,[withJump],copiedJumpProject.start,'s1');
+assert.ok(M.inspect(copiedJumpProject).problems.some(e=>e.text.includes('Скопированная область')));
+assert.throws(()=>M.previewCourse(copiedJumpProject,withJump.id),/Скопированная область.*следующий шаг/);
+console.log('Незаполненная цель скопированного перехода блокирует запуск отдельного шага и отмечается проверкой курса.');
