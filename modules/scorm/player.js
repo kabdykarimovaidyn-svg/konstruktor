@@ -197,13 +197,14 @@ function run(course,runtimeFactory,visualMarkup){
   summary.setAttribute('role','status');
   const body=el('div',undefined,panel,'sections-body');
   const list=el('ol',undefined,body,'sections-list');
+  if(menu.sections.length===4)list.classList.add('sections-list-four');
   const icons={
    browser:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>',
    mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/>',
    shield:'<path d="m12 3 8 3v6c0 4-3 7-8 9-5-2-8-5-8-9V6z"/><path d="m9 12 2 2 4-4"/>',
    folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
   };
-  for(const [i,card] of menu.sections.entries()){
+  for(const card of menu.sections){
    const done=!sectionPreview&&complete(card);
    const open=sectionPreview||card===active;
    const item=el('li',undefined,list,'section-card '+(done?'section-done':open?'section-open':'section-locked'));
@@ -211,11 +212,9 @@ function run(course,runtimeFactory,visualMarkup){
    const icon=el('span',undefined,top,'section-icon');
    icon.setAttribute('aria-hidden','true');
    icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(Object.hasOwn(icons,card.icon)?icons[card.icon]:icons.folder)+'</svg>';
-   const number=el('span',String(i+1).padStart(2,'0'),top,'section-number');
-   number.setAttribute('aria-hidden','true');
-   el('h3',card.label,item,'section-label');
+   el('h3',card.label,top,'section-label');
    const actions=el('div',undefined,item,'section-actions');
-   el('span',done?'✓ Пройден':open?'Доступен':'После предыдущего',actions,'section-status');
+   if(!open)el('span',done?'✓ Пройден':'После предыдущего',actions,'section-status');
    if(done){
     const retry=button('Пройти заново',()=>startReplay(menu,card),actions,'section-retry');
     retry.setAttribute('aria-label','Пройти заново: '+card.label);
@@ -331,26 +330,23 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 .section-summary{margin:0;color:#56718b;font-size:clamp(11px,1.35cqw,15px);font-variant-numeric:tabular-nums}
 .sections-body{flex:1;min-height:0;overflow:auto;display:flex;padding-block:clamp(8px,2cqw,24px)}
 .sections-panel .business-bottom{padding-top:clamp(5px,1.3cqw,16px);gap:6px 12px}
-.sections-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,176px),1fr));gap:clamp(10px,1.6cqw,20px);list-style:none;margin:auto 0;padding:0;width:100%}
-.section-card{min-width:0;min-height:clamp(128px,20cqw,235px);display:flex;flex-direction:column;gap:clamp(10px,2cqw,24px);padding:clamp(12px,2cqw,24px);border:1px solid #204a72;border-radius:4px;background:#173d62;color:#fff}
-.section-open{background:#005ca9;border-color:#005ca9}
-.section-done{background:#eef1f3;border-color:#418165;color:#21384f}
-.section-card-header,.section-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.section-icon{display:block;width:clamp(18px,2.5cqw,32px);height:clamp(18px,2.5cqw,32px)}
+.sections-list{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;list-style:none;margin:auto;padding:0;width:min(100%,832px)}
+.sections-list-four{max-width:550px}
+.section-card{flex:1 1 220px;max-width:270px;min-width:0;min-height:82px;display:flex;flex-direction:column;gap:7px;padding:10px 12px;border:1px solid #d7e0e9;border-radius:5px;background:#fff;color:#21384f}
+.section-open{border-color:#7395b5}
+.section-done{background:#f6faf7;border-color:#a4c6b3}
+.section-locked{background:#f7f9fb}
+.section-card-header,.section-actions{display:flex;align-items:center;gap:8px}
+.section-icon{display:block;flex:none;width:17px;height:17px;color:#526d87}
 .section-icon svg{display:block;width:100%;height:100%}
-.section-number{font-size:12px;font-variant-numeric:tabular-nums}
-.section-label{margin:0;font-size:clamp(16px,2.15cqw,26px);font-weight:700;line-height:1.18;overflow-wrap:anywhere}
-.section-actions{margin-top:auto;padding-top:10px;border-top:1px solid #ffffff55;flex-wrap:wrap}
-.section-done .section-actions{border-color:#c6d5ce}
-.section-status{font-size:12px}
-.section-done .section-status{color:#236346;font-weight:700}
-.section-actions button{padding:5px 8px;font-size:12px;font-weight:700;border-radius:3px}
-.section-tile{background:#fff;border-color:#fff;color:#004d8d}
-.section-retry{background:#fff;border-color:#a8bfb3;color:#244638}
-@container(max-width:480px){
- .sections-list{grid-template-columns:1fr}
- .section-card{min-height:0;gap:8px}
-}
+.section-label{margin:0;font-size:14px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.section-actions{margin-top:auto;min-height:27px;flex-wrap:wrap}
+.section-status{font-size:11px;color:#516478}
+.section-done .section-status{color:#236346;font-weight:600}
+.section-actions button{margin-inline-start:auto;padding:4px 8px;font-size:11px;font-weight:600;border-radius:3px}
+.section-tile{background:#fff;border-color:#a1b9cf;color:#005398}
+.section-tile:hover{background:#eef5fb;filter:none}
+.section-retry{background:transparent;border-color:#b8c7c0;color:#244638}
 .guide-layout{display:grid;grid-template-columns:minmax(230px,1fr) minmax(260px,1.15fr);gap:25px;align-items:start}
 .guide-marked{position:relative}
 .guide-marker{position:absolute;left:-15px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:white;border:2px solid white;box-shadow:0 1px 4px #183e6240;font:700 12px Arial,sans-serif;z-index:2}
