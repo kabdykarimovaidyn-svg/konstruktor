@@ -20,7 +20,8 @@ function run(course,runtimeFactory,visualMarkup){
  }
  const api=course.preview?{connected:false,warnings:[],get:()=>'',save:()=>true,finish:()=>true}:runtimeFactory(window);
  const freshState=()=>({v:4,mode:course.mode||'legacy',scored:!learning,values:{},progress:'',course:course.id,step:course.start,errors:0,done:false,score:0,time:0,refs:{},salt:''});
- let state=freshState(),currentVideo=null,lastSave=0,generation=0;const frames=new Map(),screenValues=new Map();let rememberScreen=null;
+ let state=freshState(),currentVideo=null,lastSave=0,generation=0;let frames=new Map(),screenValues=new Map(),rememberScreen=null,replay=null;
+ const imageRatios=new Map();
  try{const v=JSON.parse(api.get('cmi.suspend_data'));if([1,2,3,4].includes(v.v)&&v.course===course.id&&(!v.mode||v.mode===(course.mode||'legacy'))&&byId[v.step]&&Number.isInteger(v.errors)&&v.errors>=0&&typeof v.done==='boolean'&&Number.isFinite(v.score)&&v.score>=0&&v.score<=100)state={...state,...v,done:byId[v.step].type==='end'&&v.done,time:Math.max(0,Number(v.time)||0)};}catch{}
  state.mode=course.mode||'legacy';state.scored=!learning;if(learning){state.errors=0;state.score=0;}
  const $=id=>document.getElementById(id);$('title').textContent=course.title;
@@ -39,30 +40,45 @@ function run(course,runtimeFactory,visualMarkup){
  if($('course-logo')&&theme.logo){$('course-logo').src=theme.logo;$('course-logo').hidden=false;}
  function visited(index){return !!(parseInt(state.progress[Math.floor(index/4)]||'0',16)&(1<<(index%4)));}
  function mark(id){const i=course.steps.findIndex(s=>s.id===id);if(i<0)return;const a=state.progress.padEnd(Math.ceil(course.steps.length/4),'0').split('');a[Math.floor(i/4)]=(parseInt(a[Math.floor(i/4)],16)|(1<<(i%4))).toString(16);state.progress=a.join('');}
- function progress(){const bar=$('course-progress');if(!bar)return;bar.replaceChildren();const done=course.steps.filter((s,i)=>visited(i)&&s.type!=='return');const queue=[[state.step]],seen=new Set();let rest=[];while(queue.length){const path=queue.shift(),id=path.at(-1);if(seen.has(id))continue;seen.add(id);const s=byId[id];if(!s)continue;if(s.type==='end'){rest=path.map(id=>byId[id]).filter(s=>s.type!=='return');break;}for(const to of routeLinks(s))if(to&&!path.includes(to))queue.push([...path,to]);}const pages=[...done,...rest.filter(s=>!done.some(d=>d.id===s.id))];for(const page of pages){const seg=el('span',undefined,bar);seg.className=page.id===state.step?'current':visited(course.steps.indexOf(page))?'complete':'pending';seg.setAttribute('aria-label',page.id===state.step?'Текущая страница':visited(course.steps.indexOf(page))?'Пройдено':'Впереди');}bar.setAttribute('aria-label','Прогресс: '+done.length+' из '+pages.length+' страниц маршрута');}
+ function progress(){const bar=$('course-progress');if(!bar)return;bar.replaceChildren();const done=course.steps.filter((s,i)=>visited(i)&&s.type!=='return');const current=replay?.state.step||state.step;const queue=[[current]],seen=new Set();let rest=[];while(queue.length){const path=queue.shift(),id=path.at(-1);if(seen.has(id))continue;seen.add(id);const s=byId[id];if(!s)continue;if(s.type==='end'){rest=path.map(id=>byId[id]).filter(s=>s.type!=='return');break;}for(const to of routeLinks(s))if(to&&!path.includes(to))queue.push([...path,to]);}const pages=[...done,...rest.filter(s=>!done.some(d=>d.id===s.id))];for(const page of pages){const seg=el('span',undefined,bar);seg.className=page.id===current?'current':visited(course.steps.indexOf(page))?'complete':'pending';seg.setAttribute('aria-label',page.id===current?'Текущая страница':visited(course.steps.indexOf(page))?'Пройдено':'Впереди');}bar.setAttribute('aria-label','Прогресс: '+done.length+' из '+pages.length+' страниц маршрута');}
  let finished=false,finishing=false;
- function stats(){if($('errors'))$('errors').textContent=learning?'Обучение · без оценки':'Ошибок: '+state.errors;}
+ function stats(){if($('errors'))$('errors').textContent=replay?'Повторение · без оценки':learning?'Обучение · без оценки':'Ошибок: '+state.errors;}
  function warning(message){const e=$('session-warning');if(e){e.textContent=message||'';e.hidden=!message;}}
 
- function save(){if(finished)return true;if(currentVideo&&byId[state.step].type==='video'&&Number.isFinite(currentVideo.currentTime))state.time=currentVideo.currentTime;let ok=false;try{ok=api.save(state);}catch{}if(!ok&&api.connected)warning('Не удалось сохранить прогресс. Сохранение повторится при следующем действии.');else warning('');return ok;}
+ function save(){if(finished||replay)return true;if(currentVideo&&byId[state.step].type==='video'&&Number.isFinite(currentVideo.currentTime))state.time=currentVideo.currentTime;let ok=false;try{ok=api.save(state);}catch{}if(!ok&&api.connected)warning('Не удалось сохранить прогресс. Сохранение повторится при следующем действии.');else warning('');return ok;}
  function el(tag,value,parent,cls){const e=document.createElement(tag);if(value!==undefined)e.textContent=String(value);if(cls)e.className=cls;if(parent)parent.append(e);return e;}
  function button(label,fn,parent,cls){const b=el('button',label,parent,cls);b.type='button';b.onclick=fn;return b;}
- function wrong(message){if(!learning)state.errors++;stats();$('feedback').textContent=exam?'Неверное действие. Попробуйте ещё раз.':message||byId[state.step].error||'Неверное действие. Попробуйте ещё раз.';$('feedback').className='error';save();}
+ function wrong(message){if(!learning&&!replay)state.errors++;stats();$('feedback').textContent=exam?'Неверное действие. Попробуйте ещё раз.':message||byId[state.step].error||'Неверное действие. Попробуйте ещё раз.';$('feedback').className='error';save();}
  function go(id){if(!byId[id]){$('feedback').textContent='Переход не настроен. Обратитесь к автору курса.';return;}
+  if(replay&&id===replay.state.step){exitReplay();return;}
   if(!sectionPreview){
    for(const menu of sectionMenus){
     const card=menu.sections.find(section=>section.next===id);
     const required=nextSection(menu);
-    if((card&&card!==required)||(id===menu.next&&required)){
+    if((card&&card!==(replay?.card||required))||(id===menu.next&&(required||replay))){
      $('feedback').textContent='Пройдите разделы по порядку.';
      return;
     }
    }
   }
-  rememberScreen?.();if(currentVideo){if(byId[id].type==='choice'&&byId[id].video===state.step){state.frameId=state.step;state.frameTime=Number.isFinite(currentVideo.currentTime)?currentVideo.currentTime:0;try{const c=document.createElement('canvas');c.width=currentVideo.videoWidth;c.height=currentVideo.videoHeight;if(c.width&&c.height){c.getContext('2d').drawImage(currentVideo,0,0);frames.set(state.step,c.toDataURL('image/jpeg',.85));if(frames.size>6)frames.delete(frames.keys().next().value);}}catch{}}currentVideo.pause();currentVideo=null;}mark(state.step);state.step=id;state.time=0;save();render();}
+  rememberScreen?.();if(currentVideo){if(byId[id].type==='choice'&&byId[id].video===state.step){state.frameId=state.step;state.frameTime=Number.isFinite(currentVideo.currentTime)?currentVideo.currentTime:0;try{const c=document.createElement('canvas');c.width=currentVideo.videoWidth;c.height=currentVideo.videoHeight;if(c.width&&c.height){c.getContext('2d').drawImage(currentVideo,0,0);frames.set(state.step,c.toDataURL('image/jpeg',.85));if(frames.size>6)frames.delete(frames.keys().next().value);}}catch{}}currentVideo.pause();currentVideo=null;}if(!replay)mark(state.step);state.step=id;state.time=0;save();render();}
  function overlay(e,r){if(r){e.style.position='absolute';e.style.left=r.x+'%';e.style.top=r.y+'%';e.style.width=r.w+'%';e.style.height=r.h+'%';}}
  function fit(e){e.onloadedmetadata=()=>{if(Number.isFinite(e.duration)&&e.duration>0){e.currentTime=Math.max(0,e.duration-.04);e.pause();}};e.onseeked=()=>e.pause();}
 
+ function startReplay(menu,card){
+  if(replay||sectionPreview||state.step!==menu.id||!complete(card))return;
+  replay={state,frames,screenValues,card};
+  state={...state,step:card.next,time:0,values:{...state.values},refs:{...state.refs}};
+  frames=new Map();screenValues=new Map();lastSave=0;
+  render();
+ }
+ function exitReplay(){
+  if(!replay)return;
+  currentVideo?.pause();currentVideo=null;
+  ({state,frames,screenValues}=replay);
+  replay=null;lastSave=0;
+  render();
+ }
  function restartLearning(){
   if(!learning||finished||finishing)return;if(!save())return;
   generation++;if(currentVideo)currentVideo.pause();currentVideo=null;rememberScreen=null;
@@ -86,7 +102,7 @@ function run(course,runtimeFactory,visualMarkup){
  }
  function fitMedia(){if(!mediaViewport?.getBoundingClientRect||!mediaStage)return;const box=mediaViewport.getBoundingClientRect(),cs=window.getComputedStyle(mediaViewport),innerW=mediaViewport.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),innerH=mediaViewport.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom),w=Math.max(1,Math.floor(Math.min(innerW,innerH*mediaRatio)-1))*mediaZoom;mediaStage.style.width=w+'px';mediaStage.style.height=w/mediaRatio+'px';if(mediaStage.style.setProperty)mediaStage.style.setProperty('--field-font',Math.max(9,Math.min(20,w/60))+'px');fitFields();}
  function watchMedia(stage,viewport,ratio=16/9){mediaStage=stage;mediaViewport=viewport;mediaRatio=ratio;fitMedia();}
- function footer(area){const tools=el('div',undefined,area,'screen-tools');el('span',$('step').textContent,tools,'page-caption');return tools;}
+ function footer(area){const tools=el('div',undefined,area,'screen-tools');if(replay)button('К разделам',exitReplay,tools);else el('span',$('step').textContent,tools,'page-caption');return tools;}
  function resizeLayout(){fitMedia();}
  const requestFit=()=>{if(typeof window.requestAnimationFrame==='function')window.requestAnimationFrame(resizeLayout);else resizeLayout();};
  if(window.ResizeObserver){const observer=new ResizeObserver(requestFit);observer.observe($('screen'));if($('task-banner'))observer.observe($('task-banner'));}
@@ -146,15 +162,30 @@ function run(course,runtimeFactory,visualMarkup){
   el('p','При переходе между экранами введённые данные сохраняются в текущем прохождении.',guide,'guide-note');
  }
  function renderSections(menu,area){
-  area.classList.add('sections-screen');
-  const panel=el('section',undefined,area,'sections-panel');
+  const active=nextSection(menu);
+  const reference=byId[(active||menu.sections[0])?.next]?.background||course.steps.find(step=>step.background)?.background;
+  const viewport=el('div',undefined,area,'media-viewport');
+  const stage=el('div',undefined,viewport,'stage sections-stage');
+  watchMedia(stage,viewport,imageRatios.get(reference)||16/9);
+  const version=generation;
+  if(reference&&!imageRatios.has(reference)){
+   const probe=el('img');
+   probe.onload=()=>{
+    if(!probe.naturalWidth||!probe.naturalHeight)return;
+    const ratio=probe.naturalWidth/probe.naturalHeight;
+    imageRatios.set(reference,ratio);
+    if(version===generation){mediaRatio=ratio;requestFit();}
+   };
+   probe.src=reference;
+  }
+  const panel=el('section',undefined,stage,'sections-panel');
   const header=el('header',undefined,panel,'sections-heading');
   el('h2',menu.title||'Выберите раздел',header);
-  const active=nextSection(menu);
   const count=sectionPreview?0:menu.sections.filter(complete).length;
   const summary=el('p','Пройдено '+count+' из '+menu.sections.length,header,'section-summary');
   summary.setAttribute('role','status');
-  const list=el('ol',undefined,panel,'sections-list');
+  const body=el('div',undefined,panel,'sections-body');
+  const list=el('ol',undefined,body,'sections-list');
   const icons={
    browser:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>',
    mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/>',
@@ -164,24 +195,29 @@ function run(course,runtimeFactory,visualMarkup){
   for(const [i,card] of menu.sections.entries()){
    const done=!sectionPreview&&complete(card);
    const open=sectionPreview||card===active;
-   const item=el('li',undefined,list);
-   const row=button(undefined,()=>{if(open)go(card.next);},item,'section-tile');
-   row.disabled=!open;
-   if(open)row.classList.add('section-open');
-   const number=el('span',String(i+1).padStart(2,'0'),row,'section-number');
-   number.setAttribute('aria-hidden','true');
-   const icon=el('span',undefined,row,'section-icon');
+   const item=el('li',undefined,list,'section-card '+(done?'section-done':open?'section-open':'section-locked'));
+   const top=el('div',undefined,item,'section-card-header');
+   const icon=el('span',undefined,top,'section-icon');
    icon.setAttribute('aria-hidden','true');
    icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(Object.hasOwn(icons,card.icon)?icons[card.icon]:icons.folder)+'</svg>';
-   el('strong',card.label,row,'section-label');
-   el('span',done?'Пройден':open?'Открыть →':'Закрыт',row,'section-status');
+   const number=el('span',String(i+1).padStart(2,'0'),top,'section-number');
+   number.setAttribute('aria-hidden','true');
+   el('h3',card.label,item,'section-label');
+   const actions=el('div',undefined,item,'section-actions');
+   el('span',done?'✓ Пройден':open?'Доступен':'После предыдущего',actions,'section-status');
+   if(done){
+    const retry=button('Пройти заново',()=>startReplay(menu,card),actions,'section-retry');
+    retry.setAttribute('aria-label','Пройти заново: '+card.label);
+   }else if(open){
+    button('Начать →',()=>go(card.next),actions,'section-tile');
+   }
   }
-  if(!active||sectionPreview)button('К завершению курса',()=>go(menu.next),panel,'sections-finish');
+  if(!active||sectionPreview)button('К завершению курса',()=>go(menu.next),navigation(area),'sections-finish');
  }
  function render(){
-  generation++;rememberScreen=null;mediaViewport=null;mediaStage=null;mediaZoom=1;const version=generation;const s=byId[state.step],area=$('screen');area.replaceChildren();area.className=['intro','end'].includes(s.type)?'terminal-screen':'content-screen';if($('title').parentElement)$('title').parentElement.hidden=s.type==='intro';if($('course-progress'))$('course-progress').hidden=s.type==='intro';requestFit();$('feedback').textContent='';$('feedback').className='';$('task').textContent=instruction(s);$('step').textContent=s.type==='video'?'Видеоматериал':s.type==='choice'?'Вопрос':s.type==='message'?'Пояснение':s.type==='slide'?'Презентация':'Практическое задание';stats();progress();if($('task-title'))$('task-title').textContent=s.taskTitle||({video:'Просмотр видео',choice:'Выбор решения',form:'Работа в программе',click:'Работа в программе',message:'Изучение материала',slide:'Презентация'})[s.type]||'Учебный шаг';if($('task-banner'))$('task-banner').hidden=['end','intro'].includes(s.type)||['guide','sections'].includes(s.template);if($('work-bar'))$('work-bar').hidden=['end','intro'].includes(s.type);
+  generation++;rememberScreen=null;mediaViewport=null;mediaStage=null;mediaZoom=1;const version=generation;const s=byId[state.step],area=$('screen');area.replaceChildren();area.className=['intro','end'].includes(s.type)?'terminal-screen':'content-screen';if($('title').parentElement)$('title').parentElement.hidden=s.type==='intro';if($('course-progress'))$('course-progress').hidden=s.type==='intro';requestFit();$('feedback').textContent='';$('feedback').className='';$('task').textContent=instruction(s);$('step').textContent=s.type==='video'?'Видеоматериал':s.type==='choice'?'Вопрос':s.type==='message'?'Пояснение':s.type==='slide'?'Презентация':'Практическое задание';stats();progress();if($('task-title'))$('task-title').textContent=s.taskTitle||({video:'Просмотр видео',choice:'Выбор решения',form:'Работа в программе',click:'Работа в программе',message:'Изучение материала',slide:'Презентация'})[s.type]||'Учебный шаг';if($('task-banner')){const banner=$('task-banner');banner.hidden=['end','intro'].includes(s.type)||s.template==='guide';banner.style.visibility=s.template==='sections'?'hidden':'';}if($('work-bar'))$('work-bar').hidden=['end','intro'].includes(s.type);
   if(s.type==='return'){
-   if(!learning&&s.penalty!==false)state.errors++;
+   if(!learning&&!replay&&s.penalty!==false)state.errors++;
    // Return nodes are explicit in the graph; target must be a choice, so no automatic loop.
    go(s.next);return;
   }
@@ -203,7 +239,7 @@ function run(course,runtimeFactory,visualMarkup){
   if(s.type==='end'){mark(s.id);progress();state.done=true;state.score=learning?0:Math.max(0,100-state.errors*(Number.isFinite(course.penalty)?course.penalty:10));const card=el('div',undefined,area,'completion-card');el('div','✓',card,'completion-icon');el('div',course.previewScope==='step'?'ПРОВЕРКА ШАГА ЗАВЕРШЕНА':exam?'ЭКЗАМЕН ЗАВЕРШЁН':'ОБУЧЕНИЕ ЗАВЕРШЕНО',card,'completion-kicker');el('h2',course.title,card,'completion-title');el('p',s.body||'Вы прошли все необходимые задания.',card,'completion-description');const metrics=el('div',undefined,card,'completion-metrics');if(learning)el('span','Обучение завершено · без оценки',metrics);else{el('span','Ошибок: '+state.errors,metrics);el('span','Результат: '+state.score+' из 100',metrics);}el('p',learning?'Можно пройти обучение заново или нажать «Завершить», чтобы закрыть прохождение.':course.preview?'Нажмите «Завершить», чтобы закрыть предпросмотр.':'Нажмите «Завершить», чтобы закончить просмотр и передать результат.',card,'completion-hint');const status=el('p','',card,'finish-status');status.setAttribute('role','status');const actions=el('div',undefined,card,'completion-actions');if(learning)button('Пройти заново',restartLearning,actions,'restart-button');const endButton=button('Завершить',()=>finishCourse(endButton,status),actions,'finish-button');save();return;}
   if(s.template==='sections'){renderSections(s,area);return;}
   const viewport=el('div',undefined,area,'media-viewport');const stage=el('div',undefined,viewport,'stage');const tools=footer(area);let controls=stage,confirmForm=null;
-  if(s.background){const img=el('img',undefined,stage);img.src=s.background;img.alt='Экран программы';watchMedia(stage,viewport);img.onload=()=>{if(version!==generation)return;mediaRatio=img.naturalWidth/img.naturalHeight||16/9;requestFit();};const zoom=button('Увеличить',()=>{mediaZoom=mediaZoom===1?2:1;zoom.textContent=mediaZoom===1?'Увеличить':'Вписать';viewport.classList.toggle('zoomed',mediaZoom>1);fitMedia();},tools,'zoom-button');img.onerror=()=>{$('feedback').textContent='Не удалось загрузить скриншот.';};stage.classList.add('screenshot');}
+  if(s.background){const img=el('img',undefined,stage);img.src=s.background;img.alt='Экран программы';watchMedia(stage,viewport);img.onload=()=>{if(version!==generation)return;mediaRatio=img.naturalWidth/img.naturalHeight||16/9;imageRatios.set(s.background,mediaRatio);requestFit();};const zoom=button('Увеличить',()=>{mediaZoom=mediaZoom===1?2:1;zoom.textContent=mediaZoom===1?'Увеличить':'Вписать';viewport.classList.toggle('zoomed',mediaZoom>1);fitMedia();},tools,'zoom-button');img.onerror=()=>{$('feedback').textContent='Не удалось загрузить скриншот.';};stage.classList.add('screenshot');}
   else{controls=el('div',undefined,stage,'controls');}
   if(s.background&&visualMarkup)for(const visual of s.decorations||[])stage.insertAdjacentHTML('beforeend',visualMarkup(visual));
   const backgroundVideo=s.video&&byId[s.video];
@@ -258,8 +294,8 @@ function run(course,runtimeFactory,visualMarkup){
   requestFit();
   stage.addEventListener('click',e=>{if(s.countMissClicks===true&&(e.target===stage||e.target.tagName==='IMG'))wrong();});
  }
- document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save();});window.addEventListener('pagehide',e=>{if(e.persisted)save();else api.finish(state);});if($('save'))$('save').onclick=save;render();save();
- return {getState:()=>({...state,refs:{...state.refs}}),destroy(){generation++;if(currentVideo)currentVideo.pause();api.finish(state);}};
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save();});window.addEventListener('pagehide',e=>{if(e.persisted)save();else api.finish(replay?.state||state);});if($('save'))$('save').onclick=save;render();save();
+ return {getState:()=>({...state,refs:{...state.refs}}),destroy(){generation++;if(currentVideo)currentVideo.pause();api.finish(replay?.state||state);}};
 }
 const css=`:root{--accent:#005ca9;--course-font:Arial;--heading-color:#21384f;--text-color:#21384f}*{box-sizing:border-box}html{height:100%;overflow:hidden}body{margin:0;height:100vh;height:100dvh;display:flex;flex-direction:column;background:#f4f7fb;color:var(--text-color);font:14px/1.45 var(--course-font),sans-serif;overflow:hidden;padding:10px 16px;gap:8px}.course-header{display:flex;align-items:center;gap:12px;min-height:24px;flex-shrink:0}.course-header h1{font-size:13px;font-weight:600;color:var(--heading-color);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}#course-logo{max-width:100px;max-height:24px;object-fit:contain}#course-logo[hidden]{display:none}.error-counter{margin-left:auto;white-space:nowrap;font-size:11px;color:#647b91;padding:3px 7px;background:#fff;border:1px solid #d8e2ec;border-radius:4px}main{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}.segmented-progress{display:flex;gap:4px;height:4px;flex-shrink:0;margin:0 0 2px}.segmented-progress span{flex:1;min-width:1px;background:#d8e4ef;border-radius:2px}.segmented-progress .complete{background:var(--accent)}.segmented-progress .current{background:#79aad5}.task-banner{display:flex;align-items:flex-start;gap:12px;padding:9px 13px;background:var(--accent);color:white;border-radius:5px;flex-shrink:0;min-height:38px}.task-banner[hidden]{display:none}.task-label{font-size:12px;white-space:nowrap;padding-right:12px;border-right:1px solid #ffffff55;line-height:20px}#task{font-size:13px;line-height:20px;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;flex:1}.task-banner.expanded #task{display:block;max-height:25vh;overflow:auto}button{font:inherit;border:1px solid var(--accent);background:var(--accent);color:white;cursor:pointer;border-radius:4px;padding:8px 18px;margin:0}button:hover{filter:brightness(.94)}button:disabled{opacity:.65;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #75b1eb;outline-offset:2px}#more-task{padding:0;border:0;background:none;text-decoration:underline;font-size:11px;line-height:20px;white-space:nowrap}#more-task[hidden]{display:none}#work-bar{display:none}#feedback:empty{display:none}#feedback{position:fixed;z-index:25;bottom:55px;left:24px;right:24px;box-shadow:0 3px 14px #78301b18;font-size:12px;padding:7px 11px;border-left:3px solid #bb4030;color:#a23827;background:#fff0ec;border-radius:3px;max-height:13vh;overflow:auto}#screen{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}#screen.content-screen{padding-bottom:40px}.media-viewport{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:auto;background:#e9eef4;border:1px solid #d4dfea;border-radius:5px;padding:8px}.media-viewport.zoomed{align-items:flex-start;justify-content:flex-start}.stage{position:relative;flex-shrink:0;border-radius:3px;background:white;border:1px solid #d1dce7;overflow:hidden;width:100%;height:100%}.stage:has(>.controls){overflow:auto}.controls{padding:22px;max-width:950px;margin:auto}.stage.screenshot>img,.video-stage>video,.video-stage>img{display:block;width:100%;height:100%;object-fit:contain}.video-stage{background:#102137;border-color:#102137}.screen-tools{position:absolute;bottom:0;left:0;height:32px;display:flex;align-items:center;gap:12px;max-width:calc(100% - 135px)}.page-caption{font-size:10px;color:#7b8fa2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.screen-tools button{padding:5px 9px;font-size:10px;color:#3d6387;background:white;border:1px solid #c8d8e7;white-space:nowrap}.navigation{position:absolute;bottom:0;right:0;display:flex;justify-content:flex-end;max-width:65%;min-height:32px}.navigation button{font-size:12px;padding:7px 20px;min-width:115px}.video-options{position:absolute;left:5%;right:5%;bottom:14%;display:flex;gap:12px;flex-wrap:wrap;justify-content:center;background:#102b46dc;padding:12px;border-radius:5px}.video-options .choice-button{flex:1;min-width:150px}.positioned-options{inset:0!important;padding:0!important;background:none!important;display:block!important;pointer-events:none}.positioned-options button{pointer-events:auto;min-width:0!important;margin:0;padding:4px 7px;overflow:auto}.video-loading{position:absolute;top:10px;left:10px;background:#102137cc;color:#fff;font-size:11px;padding:5px 10px}.field-label{display:block;margin:14px 0;font-size:13px}.field-label input,.field-label select{display:block;width:420px;max-width:100%;padding:10px;font:inherit;border:1px solid #b5c8da;border-radius:4px;background:white;color:#24364b}.screenshot .field-label{position:absolute;display:flex;align-items:center;margin:0;padding:0;gap:5px}.screenshot .field-label input:not([type=checkbox]):not([type=radio]),.screenshot .field-label select{width:100%;height:100%;min-width:0;max-width:100%;padding:2px 6px;margin:0;font-size:var(--field-font,14px);border-radius:4px}.kind-checkbox{display:flex;align-items:center;gap:7px}.kind-checkbox input{width:auto;accent-color:var(--accent)}.screenshot .kind-checkbox input{width:100%;height:100%;margin:0;accent-color:var(--accent)}input[aria-invalid=true],select[aria-invalid=true],.radio-group[aria-invalid=true]{outline:2px solid #bc4431}.radio-label{display:flex;gap:10px;align-items:center;padding:12px 0}.radio-label input{accent-color:var(--accent)}.screen-radio{margin:0;padding:0 10px;cursor:pointer;background:transparent}.screen-radio input{width:clamp(12px,1.8vw,22px);height:clamp(12px,1.8vw,22px);margin:0}.radio-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;height:100%;background:#ffffffed}.radio-group label{display:flex;align-items:center;gap:6px;margin:2px;font-size:var(--field-font,13px)}.radio-group input{width:auto;padding:0;accent-color:var(--accent)}.hotspot{opacity:0;margin:0;border:0;padding:0;min-width:0;min-height:0}.hotspot:focus-visible{opacity:.65;outline:3px solid #005ca9}.choice-button{display:block;margin:6px 0}.message{white-space:pre-wrap;line-height:1.8}.template-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}.template-cards p{border-top:3px solid var(--accent);background:#f2f7fb;padding:18px}.dialog-bubble{background:#edf3fa;border-radius:10px;padding:16px;max-width:80%;white-space:pre-wrap}.dialog-bubble.reply{margin-left:auto;background:var(--accent);color:white}.terminal-screen{align-items:center;justify-content:center;overflow:auto}.completion-card{max-width:750px;width:100%;max-height:100%;overflow:auto;text-align:center;background:white;border:1px solid #d1dfeb;border-top:4px solid var(--accent);border-radius:7px;padding:28px 32px}.completion-title{font-size:25px;line-height:1.3;color:var(--heading-color);margin:12px auto 16px;overflow-wrap:anywhere}.completion-kicker{font-size:10px;letter-spacing:1px;color:#7890a6;font-weight:600}.completion-description{white-space:pre-wrap;overflow-wrap:anywhere;font-size:20px;font-weight:700;line-height:1.5;margin:12px 0;color:#005ca9}.completion-icon{display:grid;place-items:center;margin:0 auto 18px;width:52px;height:52px;border-radius:50%;background:#edf5fc;color:var(--accent);font-size:28px}.intro-logo{max-width:180px;max-height:60px;margin-bottom:18px}.completion-metrics{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:20px 0}.completion-metrics span{background:#f2f7fb;padding:8px 13px;font-size:12px;border:1px solid #dae7f2;border-radius:4px}.completion-hint,.finish-status{font-size:11px;color:#7890a6;line-height:1.7;margin-top:18px}.finish-status:empty{display:none}.finish-status.failure{color:#a33e2d;background:#fff0ec;padding:9px}.finish-button{display:block;margin:20px auto 0;min-width:170px}.screen-tools .fullscreen-button{display:block}#screen:fullscreen{background:#102137;padding:8px 8px 40px}.screen-tools:fullscreen{display:flex}#session-warning{font-size:11px;padding:6px 10px;background:#fff7df;color:#7c652e;max-height:10vh;overflow:auto;flex-shrink:0}#session-warning[hidden]{display:none}@media(max-width:600px){body{padding:8px;gap:6px}main{gap:6px}.course-header{gap:6px}.course-header h1{font-size:11px}.error-counter{font-size:10px}.task-banner{padding:7px 9px;gap:8px}.task-label{font-size:11px;padding-right:8px}#task{font-size:12px}.segmented-progress{gap:2px}.media-viewport{padding:3px}.navigation button{font-size:11px;min-width:90px;padding:7px 12px}.screen-tools{gap:5px;max-width:calc(100% - 100px)}.page-caption{display:none}.screen-tools button{font-size:10px}.positioned-options button{font-size:clamp(9px,2.7vw,15px)!important;padding:2px}.video-options{padding:6px;gap:6px}.video-options .choice-button{min-width:100px;font-size:11px}.controls{padding:15px}.completion-card{padding:20px 16px}.completion-title{font-size:21px}.completion-description{font-size:18px}.completion-metrics{margin:12px 0}.completion-hint{margin-top:12px}.finish-button{margin-top:14px}}
 
@@ -277,28 +313,32 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 .learner-guide h2{color:var(--heading-color);font-size:clamp(22px,3vw,34px);margin:0 0 5px}
 .guide-subtitle{margin:0 0 20px;color:#51677e}
 
-#screen.sections-screen{padding:0;overflow:auto}
-.sections-panel{width:min(100%,940px);margin:clamp(14px,4vh,44px) auto 20px;padding:clamp(16px,3vw,32px);background:#fff;border:1px solid #d6e2ef;border-top:3px solid var(--accent);border-radius:4px}
-.sections-heading{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;padding-bottom:18px}
-.sections-heading h2{margin:0;color:var(--heading-color);font-size:clamp(20px,3vw,28px);line-height:1.2}
-.section-summary{margin:0;color:#536d85;font-size:12px;font-variant-numeric:tabular-nums}
-.sections-list{list-style:none;margin:0;padding:0;border-top:1px solid #dce5ef}
-.section-tile{display:grid;grid-template-columns:2ch 20px minmax(0,1fr) auto;align-items:center;gap:clamp(8px,1.8vw,18px);width:100%;min-height:56px;padding:10px 14px;text-align:left;color:#29445e;background:#fff;border:0;border-bottom:1px solid #dce5ef;border-left:2px solid transparent;border-radius:0}
-.section-tile:disabled{opacity:1;filter:none}
-.section-tile.section-open{background:#f1f6fc;border-left-color:var(--accent)}
-.section-tile.section-open:hover{background:#e7f0fa;filter:none}
-.section-tile:focus-visible{outline-offset:-3px}
-.section-number{color:#536d85;font-size:12px;font-variant-numeric:tabular-nums}
-.section-icon{display:block;width:18px;height:18px;color:#536d85}
+/* Section selection shares the fitted media frame with the practice screens. */
+.stage.sections-stage{container-type:inline-size;background:#fff}
+.sections-panel{height:100%;min-height:0;display:flex;flex-direction:column;border-top:4px solid var(--accent);padding:clamp(18px,4cqw,52px);background:#fff}
+.sections-heading{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;padding-bottom:clamp(12px,2.2cqw,30px);border-bottom:1px solid #d7e0ea}
+.sections-heading h2{margin:0;color:var(--heading-color);font-size:clamp(21px,4.4cqw,48px);letter-spacing:-.025em;line-height:1.1}
+.section-summary{margin:0;color:#465f78;font-size:clamp(12px,1.45cqw,16px);font-variant-numeric:tabular-nums}
+.sections-body{flex:1;min-height:0;overflow:auto;display:flex;padding-block:clamp(12px,2.8cqw,36px)}
+.sections-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,176px),1fr));gap:clamp(10px,1.6cqw,20px);list-style:none;margin:auto 0;padding:0;width:100%}
+.section-card{min-width:0;min-height:clamp(144px,23cqw,268px);display:flex;flex-direction:column;gap:clamp(10px,2cqw,24px);padding:clamp(12px,2cqw,24px);border:1px solid #204a72;border-radius:4px;background:#173d62;color:#fff}
+.section-open{background:#005ca9;border-color:#005ca9}
+.section-done{background:#eef1f3;border-color:#418165;color:#21384f}
+.section-card-header,.section-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.section-icon{display:block;width:clamp(18px,2.5cqw,32px);height:clamp(18px,2.5cqw,32px)}
 .section-icon svg{display:block;width:100%;height:100%}
-.section-label{font-size:clamp(14px,1.8vw,16px);line-height:1.35;overflow-wrap:anywhere}
-.section-status{color:#536d85;font-size:12px;white-space:nowrap}
-.section-open :is(.section-label,.section-status,.section-icon){color:var(--accent)}
-.section-open .section-status{font-weight:700}
-.sections-finish{display:block;margin:18px 0 0 auto}
-@media(max-width:420px){
- .section-tile{grid-template-columns:2ch 18px minmax(0,1fr);gap:3px 8px;padding:9px 8px}
- .section-status{grid-column:3}
+.section-number{font-size:12px;font-variant-numeric:tabular-nums}
+.section-label{margin:0;font-size:clamp(16px,2.15cqw,26px);font-weight:700;line-height:1.18;overflow-wrap:anywhere}
+.section-actions{margin-top:auto;padding-top:10px;border-top:1px solid #ffffff55;flex-wrap:wrap}
+.section-done .section-actions{border-color:#c6d5ce}
+.section-status{font-size:12px}
+.section-done .section-status{color:#236346;font-weight:700}
+.section-actions button{padding:5px 8px;font-size:12px;font-weight:700;border-radius:3px}
+.section-tile{background:#fff;border-color:#fff;color:#004d8d}
+.section-retry{background:#fff;border-color:#a8bfb3;color:#244638}
+@container(max-width:480px){
+ .sections-list{grid-template-columns:1fr}
+ .section-card{min-height:0;gap:8px}
 }
 .guide-layout{display:grid;grid-template-columns:minmax(230px,1fr) minmax(260px,1.15fr);gap:25px;align-items:start}
 .guide-marked{position:relative}
