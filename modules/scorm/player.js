@@ -161,6 +161,16 @@ function run(course,runtimeFactory,visualMarkup){
   }
   el('p','При переходе между экранами введённые данные сохраняются в текущем прохождении.',guide,'guide-note');
  }
+ function renderBusinessBrand(cover){
+  const brand=el('div',undefined,cover,'business-brand');
+  const logo=theme.logo||(!theme.coverLogoHidden&&course.coverLogo);
+  if(logo){const image=el('img',undefined,brand,'business-logo');image.src=logo;image.alt='Корпоративный университет Казахтелеком';}
+ }
+ function renderBusinessFooter(cover){
+  const bottom=el('div',undefined,cover,'business-bottom');
+  el('span','ПРОФЕССИОНАЛЬНОЕ РАЗВИТИЕ',bottom);
+  el('span','Корпоративный университет',bottom);
+ }
  function renderSections(menu,area){
   const active=nextSection(menu);
   const reference=byId[(active||menu.sections[0])?.next]?.background||course.steps.find(step=>step.background)?.background;
@@ -178,9 +188,10 @@ function run(course,runtimeFactory,visualMarkup){
    };
    probe.src=reference;
   }
-  const panel=el('section',undefined,stage,'sections-panel');
+  const panel=el('section',undefined,stage,'business-cover sections-panel');
+  renderBusinessBrand(panel);
   const header=el('header',undefined,panel,'sections-heading');
-  el('h2',menu.title||'Выберите раздел',header);
+  el('h2',menu.title||'Выберите раздел',header,'business-title');
   const count=sectionPreview?0:menu.sections.filter(complete).length;
   const summary=el('p','Пройдено '+count+' из '+menu.sections.length,header,'section-summary');
   summary.setAttribute('role','status');
@@ -212,6 +223,7 @@ function run(course,runtimeFactory,visualMarkup){
     button('Начать →',()=>go(card.next),actions,'section-tile');
    }
   }
+  renderBusinessFooter(panel);
   if(!active||sectionPreview)button('К завершению курса',()=>go(menu.next),navigation(area),'sections-finish');
  }
  function render(){
@@ -223,17 +235,13 @@ function run(course,runtimeFactory,visualMarkup){
   }
   if(s.type==='intro'){
    const card=el('div',undefined,area,'business-cover');
-   const brand=el('div',undefined,card,'business-brand');
-   const logo=theme.logo||(!theme.coverLogoHidden&&course.coverLogo);
-   if(logo){const image=el('img',undefined,brand,'business-logo');image.src=logo;image.alt='Корпоративный университет Казахтелеком';}
+   renderBusinessBrand(card);
    const center=el('div',undefined,card,'business-center');
    el('div','КОРПОРАТИВНОЕ ОБУЧЕНИЕ',center,'business-eyebrow');
    el('h2',course.title,center,'business-title');
    if(s.body?.trim())el('p',s.body,center,'business-description');
    button('Начать',()=>go(s.next),center,'business-start');
-   const bottom=el('div',undefined,card,'business-bottom');
-   el('span','ПРОФЕССИОНАЛЬНОЕ РАЗВИТИЕ',bottom);
-   el('span','Корпоративный университет',bottom);
+   renderBusinessFooter(card);
    return;
   }
   if(s.type==='end'){mark(s.id);progress();state.done=true;state.score=learning?0:Math.max(0,100-state.errors*(Number.isFinite(course.penalty)?course.penalty:10));const card=el('div',undefined,area,'completion-card');el('div','✓',card,'completion-icon');el('div',course.previewScope==='step'?'ПРОВЕРКА ШАГА ЗАВЕРШЕНА':exam?'ЭКЗАМЕН ЗАВЕРШЁН':'ОБУЧЕНИЕ ЗАВЕРШЕНО',card,'completion-kicker');el('h2',course.title,card,'completion-title');el('p',s.body||'Вы прошли все необходимые задания.',card,'completion-description');const metrics=el('div',undefined,card,'completion-metrics');if(learning)el('span','Обучение завершено · без оценки',metrics);else{el('span','Ошибок: '+state.errors,metrics);el('span','Результат: '+state.score+' из 100',metrics);}el('p',learning?'Можно пройти обучение заново или нажать «Завершить», чтобы закрыть прохождение.':course.preview?'Нажмите «Завершить», чтобы закрыть предпросмотр.':'Нажмите «Завершить», чтобы закончить просмотр и передать результат.',card,'completion-hint');const status=el('p','',card,'finish-status');status.setAttribute('role','status');const actions=el('div',undefined,card,'completion-actions');if(learning)button('Пройти заново',restartLearning,actions,'restart-button');const endButton=button('Завершить',()=>finishCourse(endButton,status),actions,'finish-button');save();return;}
@@ -315,13 +323,16 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 
 /* Section selection shares the fitted media frame with the practice screens. */
 .stage.sections-stage{container-type:inline-size;background:#fff}
-.sections-panel{height:100%;min-height:0;display:flex;flex-direction:column;border-top:4px solid var(--accent);padding:clamp(18px,4cqw,52px);background:#fff}
-.sections-heading{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;padding-bottom:clamp(12px,2.2cqw,30px);border-bottom:1px solid #d7e0ea}
-.sections-heading h2{margin:0;color:var(--heading-color);font-size:clamp(21px,4.4cqw,48px);letter-spacing:-.025em;line-height:1.1}
-.section-summary{margin:0;color:#465f78;font-size:clamp(12px,1.45cqw,16px);font-variant-numeric:tabular-nums}
-.sections-body{flex:1;min-height:0;overflow:auto;display:flex;padding-block:clamp(12px,2.8cqw,36px)}
+.business-cover.sections-panel{height:100%;min-height:0;padding:clamp(12px,3.5cqw,42px);border-inline:0;border-bottom:0;box-shadow:none}
+.sections-panel .business-brand{min-height:0;padding-bottom:clamp(6px,1.5cqw,18px)}
+.sections-panel .business-logo{width:clamp(140px,18.9vw,238px)}
+.sections-heading{display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;padding-top:clamp(8px,2.3cqw,28px)}
+.sections-heading .business-title{font-size:clamp(20px,3.8cqw,45px)}
+.section-summary{margin:0;color:#56718b;font-size:clamp(11px,1.35cqw,15px);font-variant-numeric:tabular-nums}
+.sections-body{flex:1;min-height:0;overflow:auto;display:flex;padding-block:clamp(8px,2cqw,24px)}
+.sections-panel .business-bottom{padding-top:clamp(5px,1.3cqw,16px);gap:6px 12px}
 .sections-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,176px),1fr));gap:clamp(10px,1.6cqw,20px);list-style:none;margin:auto 0;padding:0;width:100%}
-.section-card{min-width:0;min-height:clamp(144px,23cqw,268px);display:flex;flex-direction:column;gap:clamp(10px,2cqw,24px);padding:clamp(12px,2cqw,24px);border:1px solid #204a72;border-radius:4px;background:#173d62;color:#fff}
+.section-card{min-width:0;min-height:clamp(128px,20cqw,235px);display:flex;flex-direction:column;gap:clamp(10px,2cqw,24px);padding:clamp(12px,2cqw,24px);border:1px solid #204a72;border-radius:4px;background:#173d62;color:#fff}
 .section-open{background:#005ca9;border-color:#005ca9}
 .section-done{background:#eef1f3;border-color:#418165;color:#21384f}
 .section-card-header,.section-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}

@@ -198,7 +198,7 @@ assert.equal(crossMode.getState().step,'main');assert.equal(crossMode.getState()
 assert.equal(crossMode.getState().scored,true);
 console.log('Отложенные штрафы в обучении отключены; прогресс обучения не восстанавливается в экзамене.');
 
-const sectionCourse={id:'sections',title:'Разделы',start:'menu',steps:[
+const sectionCourse={id:'sections',title:'Разделы',coverLogo:coverLogo.src,start:'menu',steps:[
  {id:'menu',type:'message',template:'sections',next:'end',sections:[
   {label:'Первый',next:'first',finish:'first'},
   {label:'Второй',next:'second',finish:'second'},
@@ -211,6 +211,7 @@ const sectionCourse={id:'sections',title:'Разделы',start:'menu',steps:[
 ]};
 assert.equal(ScenaSCORM.validate(sectionCourse),true);
 const sectionPlayer=window.ScenaPlayer.run(sectionCourse,()=>bridge);
+assert.equal(all('img').find(e=>e.className==='business-logo').src,coverLogo.src);
 const cards=()=>nodes.screen.all().filter(e=>e.className?.startsWith('section-card '));
 const attempt=value=>{
  all('input')[0].value=value;
