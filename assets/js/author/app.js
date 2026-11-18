@@ -144,7 +144,24 @@ function renderInspector(){
  }
  let content='';
  if(n.type==='intro')content=textarea('Описание на обложке','body',n.body);
- if(n.type==='message'){
+ if(n.template==='sections'){
+  let cards='';
+  n.sections.forEach((card,i)=>{
+   const base='sections.'+i+'.';
+   cards+=section('section-'+card.id,'Раздел '+(i+1),
+    input('Название раздела',base+'label',card.label)+
+    target('Первый шаг',base+'next',card.next)+
+    target('Последний шаг',base+'finish',card.finish)+
+    '<label>Иконка<select data-path="'+base+'icon">'+Object.entries({folder:'Папка',browser:'Браузер',mail:'Почта',shield:'Защита'}).map(([key,label])=>'<option value="'+key+'" '+(key===(card.icon||'folder')?'selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
+    '<button data-move-section="'+i+'" data-direction="-1" '+(i===0?'disabled':'')+'>Выше</button> '+
+    '<button data-move-section="'+i+'" data-direction="1" '+(i===n.sections.length-1?'disabled':'')+'>Ниже</button> '+
+    '<button data-remove-section="'+i+'" class="danger">Удалить</button>',true);
+  });
+  out+=section('sections','Разделы и переходы',cards+
+   '<button data-add-section class="full" '+(n.sections.length>=100?'disabled':'')+'>Добавить раздел</button>'+
+   '<p class="small">На последнем шаге каждого раздела настройте переход обратно к этой странице.</p>',true);
+ }
+ if(n.type==='message'&&n.template!=='sections'){
   if(n.template==='guide')content+='<p class="small">Каждая строка — «Название|Пояснение» для одного пункта инструкции.</p>';
   content+=textarea('Текст страницы','body',n.body)+input('Подпись кнопки','button',n.button);
  }
@@ -199,7 +216,7 @@ function renderInspector(){
  if(n.type==='video')next=target('После окончания видео','next',n.next);
  if(n.type==='intro')next=target('После кнопки «Начать»','next',n.next);
  if(n.type==='slide')next=target('После слайда','next',n.next);
- if(n.type==='message')next=target('Открыть следующий шаг','next',n.next);
+ if(n.type==='message')next=target(n.template==='sections'?'Итог после всех разделов':'Открыть следующий шаг','next',n.next);
  if(n.type==='return')next=target('Вернуться к вопросу','next',n.next,{choiceOnly:true})+
   checkbox('Засчитать ветку как одну ошибку','penalty',n.penalty!==false);
  if(next)out+=section('next','Переход к следующему шагу',next);
@@ -249,7 +266,8 @@ function renderEditor(){const n=node();$('selected-type').textContent=n?M.types[
  else if(n.type==='intro')content+=`<div class="author-business-cover"><div class="author-business-brand">${p.theme?.logo?`<img src="${url(p.theme.logo)}" alt="Логотип">`:p.theme?.coverLogoHidden?'':`<img src="${M.brandLogo}" alt="Корпоративный университет Казахтелеком">`}</div><div class="author-business-center"><small>КОРПОРАТИВНОЕ ОБУЧЕНИЕ</small><h2>${h(p.title)}</h2><p>${h(n.body||'')}</p><span>Начать</span></div><footer>ПРОФЕССИОНАЛЬНОЕ РАЗВИТИЕ · Корпоративный университет</footer></div>`;
  else if(['end'].includes(n.type))content+=`<div class="author-completion" style="font-family:${h(p.theme?.font||'Arial')};border-top-color:${/^#[a-f0-9]{6}$/i.test(p.theme?.color||'')?p.theme.color:'#005ca9'}"><div class="author-completion-icon">${n.type==='intro'?'▶':'✓'}</div>${p.theme?.logo?`<img class="author-logo" src="${url(p.theme.logo)}" alt="Логотип">`:``}<small>${n.type==='intro'?'ДОБРО ПОЖАЛОВАТЬ':'ОБУЧЕНИЕ ЗАВЕРШЕНО'}</small><h2>${h(p.title)}</h2><p>${h(n.body||'Вы прошли все необходимые задания.')}</p><span class="author-finish-button">${n.type==='intro'?'Начать':'Завершить'}</span><p class="small">${n.type==='intro'?'Кнопка открывает первый материал курса.':'Кнопка сохраняет результат и завершает SCORM-сессию.'}</p></div>`;
  else content+=`<div class="settings-card"><h2>${h(n.title)}</h2><p style="white-space:pre-wrap">${h(n.body||'Добавьте текст справа.')}</p>${n.type==='end'?'<span class="tag">Завершает курс и передаёт результат в LMS</span>':''}</div>`;
- if(n.options)content+='<div class="quick-options">'+n.options.map((o,i)=>`<div class="quick-option"><strong>${i+1}. ${h(o.label)}</strong><small>${o.wrong?'Ошибка → повтор':h(title(o.next))}</small></div>`).join('')+'</div>';else if(n.type!=='end')content+=`<div class="quick-option" style="margin-top:16px"><strong>Далее</strong><small>${h(title(n.next))}</small></div>`;
+ if(n.template==='sections')content+='<div class="quick-options">'+n.sections.map((card,i)=>'<div class="quick-option"><strong>'+h(card.label)+'</strong><small>'+h(title(card.next))+' → '+h(title(card.finish))+'</small></div>').join('')+'</div>';
+ else if(n.options)content+='<div class="quick-options">'+n.options.map((o,i)=>`<div class="quick-option"><strong>${i+1}. ${h(o.label)}</strong><small>${o.wrong?'Ошибка → повтор':h(title(o.next))}</small></div>`).join('')+'</div>';else if(n.type!=='end')content+=`<div class="quick-option" style="margin-top:16px"><strong>Далее</strong><small>${h(title(n.next))}</small></div>`;
  $('editor-content').innerHTML=content;if($('screen-wrap')){bindDrawing();ScenaAreas.bind();const video=$('screen-wrap').querySelector('video');if(video)video.onloadedmetadata=()=>{video.currentTime=Math.max(0,video.duration-.05);};}}
 function setDrawing(tool){if(tool.kind==='new-field'&&(node()?.fields?.length||0)>=30){notice('На одном экране доступно до 30 полей.');return;}if(!node()?.background&&!node()?.video){notice('Сначала загрузите скриншот или выберите видео.');return;}document.body.classList.remove('inspector-open');setTab('editor');drawing=tool;renderEditor();$('screen-wrap')?.scrollIntoView({block:'nearest',behavior:'smooth'});}
 function bindDrawing(){const wrap=$('screen-wrap');let start=null,draft=null;
@@ -351,7 +369,7 @@ function preview(fromCurrent=false,mode){try{
  course.mode=mode||p.settings.mode;previewScope=fromCurrent;previewToken=M.uid('preview');course.previewToken=previewToken;
  const resources=Object.fromEntries(Object.keys(p.assets).map(path=>[path,url(path)]));
  $('preview-frame').srcdoc=ScenaSCORM.preview(course,resources);$('preview-mode').value=course.mode;
- document.querySelector('#preview-dialog .dialog-bar strong').textContent=(fromCurrent==='from'?'Курс с выбранного шага':fromCurrent?'Проверка выбранного шага':'Предпросмотр курса')+(course.previewDependencies?' · сначала исходные поля':'');
+ document.querySelector('#preview-dialog .dialog-bar strong').textContent=(fromCurrent==='from'?'Курс с выбранного шага':fromCurrent?'Проверка выбранного шага':'Предпросмотр курса')+(course.previewDependencies?' · сначала исходные поля':'')+(fromCurrent==='from'&&course.start===p.start&&selected!==p.start&&p.steps.some(n=>n.template==='sections')?' · разделы по порядку':'');
  if(!$('preview-dialog').open)$('preview-dialog').showModal();
  }catch(error){notice('Проверьте настройки: '+error.message);}}
 
@@ -364,6 +382,16 @@ function addTemplate(kind){if(kind==='browser'){
  mutate(()=>{const original=p.steps.find(s=>s.id===anchor),next=original?.next;p.assets[path]={name:'Браузер — новая вкладка.svg',blob:new Blob([svg],{type:'image/svg+xml'})};M.insert(p,[n],anchor,selectedGroup);if(p.settings.flow==='branching'&&original)original.next=next;if(p.settings.flow==='sequence')ScenaMap.arrange();});
  select(n.id);ScenaAreas.pickField(n.fields[0].id);inspectorSections.set(n.id+':field',true);renderInspector();
  notice('Шаблон браузера добавлен. Справа задайте правильный адрес сайта в свойствах поля.');return;
+ }if(kind==='sections'){
+  const anchor=insertionAnchor(),previous=p.steps.find(s=>s.id===anchor);
+  const menu=M.sectionMenu(selectedGroup,[M.sectionCard('Раздел 1',previous?.next||'')]);
+  mutate(()=>{
+   p.settings.flow='branching';
+   M.insert(p,[menu],anchor,selectedGroup);
+   menu.next=p.steps.find(s=>s.type==='end')?.id||'';
+   if(previous&&previous.type!=='end'&&!previous.options)previous.next=menu.id;
+  });
+  select(menu.id);return;
  }if(kind==='guide'){const n=M.guideNode(selectedGroup);mutate(()=>M.insert(p,[n],insertionAnchor(),selectedGroup));select(n.id);return;}if(kind==='intro'){if(p.steps.some(n=>n.type==='intro')){select(p.steps.find(n=>n.type==='intro').id);return;}mutate(()=>M.addIntro(p));select(p.start);return;}const n=M.node('message',selectedGroup);n.template=kind;n.title={instruction:'Инструкция',cards:'Карточки',dialog:'Диалог'}[kind]||'Материал';n.body={instruction:'Шаг 1. Подготовьте необходимые данные.\nШаг 2. Выполните действие.\nШаг 3. Проверьте результат.',cards:'Первый ключевой пункт\nВторой ключевой пункт\nТретий ключевой пункт',dialog:'Клиент: Добрый день! Мне нужна помощь.\nСотрудник: Здравствуйте! Уточните, пожалуйста, детали.'}[kind];mutate(()=>M.insert(p,[n],insertionAnchor(),selectedGroup));selected=n.id;render();}
 function setPath(object,path,value){const parts=path.split('.');let ref=object;for(const part of parts.slice(0,-1)){if(!Object.hasOwn(ref,part))throw Error('Поле не найдено.');ref=ref[part];}ref[parts.at(-1)]=value;}
 let textEdit=null;
@@ -391,6 +419,17 @@ $('inspector-content').addEventListener('change',e=>{if(e.target.hasAttribute('d
  }
  if(path==='next'||/^options\.\d+\.next$/.test(path))p.settings.flow='branching';if(path==='group'){selectedGroup=value;M.sequence(p);}if(/(?:rect|submitRect)\./.test(path)){const base=path.split('.').slice(0,-1);let r=n;for(const key of base)r=r[key];r.x=Math.max(0,Math.min(99,r.x));r.y=Math.max(0,Math.min(99,r.y));r.w=Math.max(1,Math.min(100-r.x,r.w));r.h=Math.max(1,Math.min(100-r.y,r.h));}if(/^fields\.\d+\.kind$/.test(path)){const f=n.fields[Number(path.split('.')[1])];if(value!=='text'){f.rule='exact';delete f.match;delete f.inputType;if(['select','radio'].includes(value)&&!f.choices){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';}}}if(path==='background'&&value)n.video='';if(path==='video'&&value){n.background='';n.selectBeforeContinue=false;}});render();});
 $('inspector-content').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!node())return;const d=b.dataset,n=node();
+ if('addSection' in d||'removeSection' in d||'moveSection' in d){
+  mutate(()=>{
+   if('addSection' in d)n.sections.push(M.sectionCard('Раздел '+(n.sections.length+1)));
+   if('removeSection' in d)n.sections.splice(Number(d.removeSection),1);
+   if('moveSection' in d){
+    const i=Number(d.moveSection),j=i+Number(d.direction);
+    [n.sections[i],n.sections[j]]=[n.sections[j],n.sections[i]];
+   }
+  });
+  render();return;
+ }
  if(d.appliedKey){
   inspectorSections.set(n.id+':add',false);
   inspectorSections.set(n.id+':selected-jump',true);if(d.appliedKey.startsWith('f:'))inspectorSections.set(n.id+':field',true);if(d.appliedKey.startsWith('v:')){inspectorSections.set(n.id+':visual',true);inspectorSections.set(n.id+':design',true);}
@@ -441,7 +480,7 @@ $('add-material').onclick=()=>openAdd();$('add-dialog').onclick=e=>{const b=e.ta
 let titleEditing=false;$('course-title').oninput=()=>{if(!titleEditing){checkpoint();titleEditing=true;}p.title=$('course-title').value;const heading=$('editor-content').querySelector('.author-completion h2');if(heading)heading.textContent=p.title;changed();};$('course-title').onblur=()=>{titleEditing=false;if(!p.title.trim()){p.title='Без названия';$('course-title').value=p.title;changed();}};document.querySelector('.tabs').onclick=e=>{if(e.target.dataset.tab)setTab(e.target.dataset.tab);};
 $('asset-input').onchange=()=>upload([...$('asset-input').files]);$('library-upload').onclick=()=>{uploadTarget={mode:'library'};$('asset-input').multiple=true;$('asset-input').accept='video/mp4,video/webm,image/png,image/jpeg,image/webp';$('asset-input').value='';$('asset-input').click();};
 $('batch-list').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;if('batchRemove'in d)pendingBatch.splice(Number(d.batchRemove),1);else{const i=Number(d.batchUp??d.batchDown),j=i+('batchUp'in d?-1:1);if(j>=0&&j<pendingBatch.length)[pendingBatch[i],pendingBatch[j]]=[pendingBatch[j],pendingBatch[i]];}batchList();};$('sort-batch').onclick=()=>{pendingBatch.sort((a,b)=>a.name.localeCompare(b.name,'ru',{numeric:true}));batchList();};$('confirm-batch').onclick=addBatch;$('cancel-batch').onclick=()=>$('batch-dialog').close();$('batch-dialog').addEventListener('close',()=>clearBatch());
-$('configure-flow').onclick=()=>setTab('settings');$('course-flow').onchange=async()=>{const next=$('course-flow').value;if(next==='sequence'&&p.steps.filter(n=>n.type==='end').length>1){notice('Для прохождения по порядку оставьте один итоговый экран.');renderSettings();return;}if(next==='sequence'&&p.steps.some(n=>n.type==='return')){notice('Удалите шаги возврата перед переходом к прохождению по порядку.');renderSettings();return;}if(next==='sequence'&&p.settings.flow!=='sequence'&&!await confirmAction('Изменить порядок прохождения?','Все правильные ответы и шаги будут вести дальше по списку слева. Настроенные ветки заменятся последовательностью. Действие можно отменить.','Идти по порядку')){renderSettings();return;}mutate(()=>{p.settings.flow=next;M.sequence(p);if(next==='sequence')ScenaMap.arrange();});render();};
+$('configure-flow').onclick=()=>setTab('settings');$('course-flow').onchange=async()=>{const next=$('course-flow').value;if(next==='sequence'&&p.steps.some(n=>n.template==='sections')){notice('Страница выбора разделов использует настроенные переходы.');renderSettings();return;}if(next==='sequence'&&p.steps.filter(n=>n.type==='end').length>1){notice('Для прохождения по порядку оставьте один итоговый экран.');renderSettings();return;}if(next==='sequence'&&p.steps.some(n=>n.type==='return')){notice('Удалите шаги возврата перед переходом к прохождению по порядку.');renderSettings();return;}if(next==='sequence'&&p.settings.flow!=='sequence'&&!await confirmAction('Изменить порядок прохождения?','Все правильные ответы и шаги будут вести дальше по списку слева. Настроенные ветки заменятся последовательностью. Действие можно отменить.','Идти по порядку')){renderSettings();return;}mutate(()=>{p.settings.flow=next;M.sequence(p);if(next==='sequence')ScenaMap.arrange();});render();};
 $('media-grid').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.useAsset){const n=node();if(!n){notice('Сначала добавьте шаг.');return;}const path=b.dataset.useAsset,a=p.assets[path];if(a.blob.type.startsWith('video/')&&n.type!=='video'){notice('Выберите шаг типа «Видео» в левой панели.');return;}if(a.blob.type.startsWith('image/')&&!['form','click','choice','message'].includes(n.type)){notice('Выберите шаг тренажёра или выбора.');return;}mutate(()=>{n[a.blob.type.startsWith('video/')?'src':'background']=path;if(a.blob.type.startsWith('image/')&&n.type==='choice')n.video='';});setTab('editor');}if(b.dataset.deleteAsset){mutate(()=>delete p.assets[b.dataset.deleteAsset]);renderMedia();}};
 $('start-step').onchange=()=>{mutate(()=>p.start=$('start-step').value);render();};$('course-mode').onchange=()=>mutate(()=>p.settings.mode=$('course-mode').value);$('course-penalty').onchange=()=>{mutate(()=>p.settings.penalty=Math.max(0,Math.min(100,Number($('course-penalty').value)||0)));renderSettings();};$('validate-course').onclick=()=>{$('validation-results').innerHTML=issuesHTML(check());};
 $('preview-from').onclick=()=>preview('from');$('preview-mode').onchange=()=>preview(previewScope,$('preview-mode').value);$('preview-course').onclick=()=>preview();$('preview-node').onclick=()=>preview(true);$('close-preview').onclick=()=>{$('preview-dialog').close();$('preview-frame').srcdoc='';};$('preview-dialog').addEventListener('close',()=>{$('preview-frame').srcdoc='';previewToken=null;});window.addEventListener('message',e=>{if(e.source===$('preview-frame').contentWindow&&e.data?.type==='scena-preview-finished'&&previewToken&&e.data.token===previewToken)$('preview-dialog').close();});

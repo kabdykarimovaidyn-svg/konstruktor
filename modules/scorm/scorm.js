@@ -10,7 +10,7 @@ function validate(course){
  const ids=new Set();let endings=0;
  course.steps.forEach(s=>{if(!/^[-a-zA-Z0-9_]{1,80}$/.test(s.id)||ids.has(s.id))throw Error('ID шагов должны быть уникальными.');ids.add(s.id);if(!['input','choice','click','video','form','message','return','end','intro','slide'].includes(s.type))throw Error('Неизвестный тип шага.');if(s.type==='end')endings++;});
  if(!ids.has(course.start)||!endings)throw Error('Нужны стартовый и финальный шаги.');
- const links=s=>[...(s.options?.filter(o=>!o.wrong).map(o=>o.next).filter(Boolean)||(s.next?[s.next]:[])),...(s.jumps||[]).map(j=>j.next)];
+ const links=s=>[...(s.template==='sections'?(s.sections||[]).map(card=>card.next).filter(Boolean):[]),...(s.options?.filter(o=>!o.wrong).map(o=>o.next).filter(Boolean)||(s.next?[s.next]:[])),...(s.jumps||[]).map(j=>j.next)];
  for(const s of course.steps){
   if(s.decorations!==undefined&&!root.ScenaVisuals.valid(s.decorations))throw Error('Некорректные фигуры или текст.');
   if(s.type==='form'&&(!Array.isArray(s.fields)||!s.fields.length))throw Error('Добавьте поле ввода: '+s.id);
@@ -36,7 +36,7 @@ function validate(course){
  const canEnd=new Set(course.steps.filter(s=>s.type==='end').map(s=>s.id));let changed=true;
  while(changed){changed=false;for(const s of course.steps)if(!canEnd.has(s.id)&&links(s).some(id=>canEnd.has(id))){canEnd.add(s.id);changed=true;}}
  if([...reachable].some(id=>!canEnd.has(id)))throw Error('В сценарии есть ветка без пути к завершению.');
- const fields=root.ScenaFields||(typeof require==='function'?require('./fields.js'):null);if(!fields)throw Error('Модуль проверки полей не загружен.');const issues=fields.issues(course);if(issues.length)throw Error(issues[0].message);
+ const fields=root.ScenaFields||(typeof require==='function'?require('./fields.js'):null);if(!fields)throw Error('Модуль проверки полей не загружен.');const issues=[...(course.previewScope==='step'?[]:fields.sectionIssues(course)),...fields.issues(course)];if(issues.length)throw Error(issues[0].message);
  return true;
 }
 function runtime(win){

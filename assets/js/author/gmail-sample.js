@@ -25,6 +25,23 @@ add('confirm','form','Повторите пароль',{instruction:'Повто�
 add('recovery','click','Дополнительные сведения',{instruction:'В учебной регистрации пропустите добавление номера телефона: нажмите «Пропустить».',background:bg('recovery','Добавьте номер телефона','Для тренажёра телефон не нужен',text(470,420,'В реальном сервисе номер может использоваться',20,'#657e96')+text(470,455,'для восстановления доступа.',20,'#657e96')+action(555,'Добавить номер телефона')+text(720,695,'Пропустить',24,'#005ca9','text-anchor="middle"')),rect:rect(600,657,240,60),label:'Пропустить',error:'В этом учебном задании нажмите «Пропустить».'});
 add('review','form','Проверьте данные',{instruction:'Проверьте автоматически подставленные учебные данные, отметьте согласие и нажмите «Завершить регистрацию».',background:bg('review','Проверьте данные','Последний шаг учебной регистрации',field(370,'Имя',470,235)+field(370,'Фамилия',735,235)+field(500,'Имя пользователя',470,330)+text(820,538,'@gmail.com',24,'#536d85')+text(520,675,'Подтверждаю учебную регистрацию',20,'#455e76')),fields:[{id:'first_copy',label:'Имя в карточке',rule:'any',autofill:{stepId:'name',fieldId:'first'},rect:rect(470,370,235,58)},{id:'last_copy',label:'Фамилия в карточке',rule:'any',autofill:{stepId:'name',fieldId:'last'},rect:rect(735,370,235,58)},{id:'login_copy',label:'Логин в карточке',rule:'match',match:{stepId:'username',fieldId:'login'},autofill:{stepId:'username',fieldId:'login'},rect:rect(470,500,330,58)},{id:'agree',label:'Подтверждаю учебную регистрацию',kind:'checkbox',expectedChecked:true,rect:rect(470,648,28,28)}],button:'Завершить регистрацию',error:'Проверьте заполнение данных и отметьте согласие.'});
 add('finish','end','Регистрация завершена',{body:'Вы прошли учебную регистрацию Gmail: открыли сайт, выбрали тип почты, заполнили данные и подтвердили пароль.\nРеальный аккаунт не создавался. Нажмите «Завершить», чтобы закончить курс.'});
-p.start='welcome';for(let i=0;i<p.steps.length;i++){const n=p.steps[i];if(n.type!=='end'&&!n.options)n.next=p.steps[i+1].id;p.layout[n.id]={x:60,y:50+i*280};}return p;}
+p.start='welcome';for(let i=0;i<p.steps.length;i++){const n=p.steps[i];if(n.type!=='end'&&!n.options)n.next=p.steps[i+1].id;p.layout[n.id]={x:60,y:50+i*280};}
+ M.addGuide(p);
+ const guide=p.steps.find(s=>s.template==='guide');
+ const menu=M.sectionMenu(guide.group,[
+  M.sectionCard('Начало регистрации','address','account','browser'),
+  M.sectionCard('Личные данные и адрес почты','name','username','mail'),
+  M.sectionCard('Пароль и подтверждение','password','review','shield')
+ ]);
+ menu.next='finish';
+ guide.next=menu.id;
+ guide.button='К выбору раздела';
+ p.steps.splice(p.steps.indexOf(guide)+1,0,menu);
+ p.steps.find(s=>s.id==='account').options[0].next=menu.id;
+ p.steps.find(s=>s.id==='username').next=menu.id;
+ p.steps.find(s=>s.id==='review').next=menu.id;
+ p.settings.flow='branching';
+ p.steps.forEach((s,i)=>{p.layout[s.id]={x:60,y:50+i*280};});
+ return p;}
 root.ScenaSamples=root.ScenaSamples||{};root.ScenaSamples.createGmail=createGmail;
 })(typeof window!=='undefined'?window:globalThis);
