@@ -146,13 +146,15 @@ function run(course,runtimeFactory,visualMarkup){
   el('p','При переходе между экранами введённые данные сохраняются в текущем прохождении.',guide,'guide-note');
  }
  function renderSections(menu,area){
+  area.classList.add('sections-screen');
   const panel=el('section',undefined,area,'sections-panel');
-  el('h2',menu.title||'Выберите раздел',panel);
+  const header=el('header',undefined,panel,'sections-heading');
+  el('h2',menu.title||'Выберите раздел',header);
   const active=nextSection(menu);
   const count=sectionPreview?0:menu.sections.filter(complete).length;
-  const summary=el('p',count+' из '+menu.sections.length+' пройдено',panel,'section-summary');
+  const summary=el('p','Пройдено '+count+' из '+menu.sections.length,header,'section-summary');
   summary.setAttribute('role','status');
-  const grid=el('div',undefined,panel,'sections-grid');
+  const list=el('ol',undefined,panel,'sections-list');
   const icons={
    browser:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>',
    mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/>',
@@ -162,14 +164,17 @@ function run(course,runtimeFactory,visualMarkup){
   for(const [i,card] of menu.sections.entries()){
    const done=!sectionPreview&&complete(card);
    const open=sectionPreview||card===active;
-   const tile=button(undefined,()=>{if(open)go(card.next);},grid,'section-tile');
-   tile.disabled=!open;
-   if(open)tile.classList.add('section-open');
-   const icon=el('span',undefined,tile,'section-icon');
+   const item=el('li',undefined,list);
+   const row=button(undefined,()=>{if(open)go(card.next);},item,'section-tile');
+   row.disabled=!open;
+   if(open)row.classList.add('section-open');
+   const number=el('span',String(i+1).padStart(2,'0'),row,'section-number');
+   number.setAttribute('aria-hidden','true');
+   const icon=el('span',undefined,row,'section-icon');
    icon.setAttribute('aria-hidden','true');
    icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(Object.hasOwn(icons,card.icon)?icons[card.icon]:icons.folder)+'</svg>';
-   el('strong',(i+1)+'. '+card.label,tile,'section-label');
-   el('span',done?'✓ Пройден':open?'Открыть раздел →':'Откроется после предыдущего',tile,'section-status');
+   el('strong',card.label,row,'section-label');
+   el('span',done?'Пройден':open?'Открыть →':'Закрыт',row,'section-status');
   }
   if(!active||sectionPreview)button('К завершению курса',()=>go(menu.next),panel,'sections-finish');
  }
@@ -272,21 +277,29 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 .learner-guide h2{color:var(--heading-color);font-size:clamp(22px,3vw,34px);margin:0 0 5px}
 .guide-subtitle{margin:0 0 20px;color:#51677e}
 
-#screen:has(>.sections-panel){padding-bottom:0;overflow:auto}
-.sections-panel{width:min(100%,1120px);margin:auto;padding:clamp(20px,4vw,52px);background:#fff;border:1px solid #d6e2ef;border-top:4px solid var(--accent);border-radius:10px}
-.sections-panel h2{margin:0;color:var(--heading-color);font-size:clamp(24px,4vw,36px);line-height:1.2}
-.section-summary{margin:8px 0 22px;color:#536d85}
-.sections-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,218px),1fr));gap:clamp(10px,2vw,18px)}
-.section-tile{display:grid;grid-template-rows:auto 1fr auto;justify-items:start;align-items:start;gap:12px;min-width:0;min-height:154px;padding:clamp(14px,2.5vw,24px);text-align:left;color:#29445e;background:#f5f8fc;border:1px solid #d8e4ef;border-radius:8px}
+#screen.sections-screen{padding:0;overflow:auto}
+.sections-panel{width:min(100%,940px);margin:clamp(14px,4vh,44px) auto 20px;padding:clamp(16px,3vw,32px);background:#fff;border:1px solid #d6e2ef;border-top:3px solid var(--accent);border-radius:4px}
+.sections-heading{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;padding-bottom:18px}
+.sections-heading h2{margin:0;color:var(--heading-color);font-size:clamp(20px,3vw,28px);line-height:1.2}
+.section-summary{margin:0;color:#536d85;font-size:12px;font-variant-numeric:tabular-nums}
+.sections-list{list-style:none;margin:0;padding:0;border-top:1px solid #dce5ef}
+.section-tile{display:grid;grid-template-columns:2ch 20px minmax(0,1fr) auto;align-items:center;gap:clamp(8px,1.8vw,18px);width:100%;min-height:56px;padding:10px 14px;text-align:left;color:#29445e;background:#fff;border:0;border-bottom:1px solid #dce5ef;border-left:2px solid transparent;border-radius:0}
 .section-tile:disabled{opacity:1;filter:none}
-.section-tile.section-open{background:white;border-color:var(--accent);box-shadow:0 4px 12px #183f7712}
-.section-tile.section-open:hover{background:#f2f7ff;filter:none}
-.section-icon{width:42px;height:42px;padding:9px;border-radius:9px;background:#e9f1fb;color:var(--accent)}
+.section-tile.section-open{background:#f1f6fc;border-left-color:var(--accent)}
+.section-tile.section-open:hover{background:#e7f0fa;filter:none}
+.section-tile:focus-visible{outline-offset:-3px}
+.section-number{color:#536d85;font-size:12px;font-variant-numeric:tabular-nums}
+.section-icon{display:block;width:18px;height:18px;color:#536d85}
 .section-icon svg{display:block;width:100%;height:100%}
-.section-label{font-size:clamp(15px,2vw,19px);line-height:1.3;overflow-wrap:anywhere}
-.section-status{font-size:12px;color:#536d85}
-.section-open .section-status{color:var(--accent);font-weight:700}
-.sections-finish{display:block;margin:22px 0 0 auto}
+.section-label{font-size:clamp(14px,1.8vw,16px);line-height:1.35;overflow-wrap:anywhere}
+.section-status{color:#536d85;font-size:12px;white-space:nowrap}
+.section-open :is(.section-label,.section-status,.section-icon){color:var(--accent)}
+.section-open .section-status{font-weight:700}
+.sections-finish{display:block;margin:18px 0 0 auto}
+@media(max-width:420px){
+ .section-tile{grid-template-columns:2ch 18px minmax(0,1fr);gap:3px 8px;padding:9px 8px}
+ .section-status{grid-column:3}
+}
 .guide-layout{display:grid;grid-template-columns:minmax(230px,1fr) minmax(260px,1.15fr);gap:25px;align-items:start}
 .guide-marked{position:relative}
 .guide-marker{position:absolute;left:-15px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:white;border:2px solid white;box-shadow:0 1px 4px #183e6240;font:700 12px Arial,sans-serif;z-index:2}
