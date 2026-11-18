@@ -197,3 +197,40 @@ const crossMode=window.ScenaPlayer.run(examResume,()=>({...bridge,get:()=>JSON.s
 assert.equal(crossMode.getState().step,'main');assert.equal(crossMode.getState().done,false);
 assert.equal(crossMode.getState().scored,true);
 console.log('Отложенные штрафы в обучении отключены; прогресс обучения не восстанавливается в экзамене.');
+
+const sectionCourse={id:'sections',title:'Разделы',start:'menu',steps:[
+ {id:'menu',type:'message',template:'sections',next:'end',sections:[
+  {label:'Первый',next:'first',finish:'first'},
+  {label:'Второй',next:'second',finish:'second'},
+  {label:'Третий',next:'third',finish:'third'}
+ ]},
+ {id:'first',type:'form',fields:[{id:'code',label:'Code',expected:'123'}],next:'menu'},
+ {id:'second',type:'message',next:'menu'},
+ {id:'third',type:'message',next:'menu'},
+ {id:'end',type:'end'}
+]};
+assert.equal(ScenaSCORM.validate(sectionCourse),true);
+const sectionPlayer=window.ScenaPlayer.run(sectionCourse,()=>bridge);
+const tiles=()=>all('button').filter(e=>e.className==='section-tile');
+assert.deepEqual(tiles().map(e=>e.disabled),[false,true,true]);
+tiles()[2].onclick();
+assert.equal(sectionPlayer.getState().step,'menu');
+tiles()[0].onclick();
+all('input')[0].value='wrong';
+all('form')[0].onsubmit({preventDefault(){}});
+assert.equal(sectionPlayer.getState().step,'first');
+all('input')[0].value='123';
+all('form')[0].onsubmit({preventDefault(){}});
+assert.deepEqual(tiles().map(e=>e.disabled),[true,false,true]);
+const midway=JSON.stringify(saved);
+const resumedSections=window.ScenaPlayer.run(sectionCourse,()=>({...bridge,get:()=>midway}));
+assert.deepEqual(tiles().map(e=>e.disabled),[true,false,true]);
+tiles()[1].onclick();
+click('Далее');
+assert.deepEqual(tiles().map(e=>e.disabled),[true,true,false]);
+tiles()[2].onclick();
+click('Далее');
+assert.deepEqual(tiles().map(e=>e.disabled),[true,true,true]);
+click('К завершению курса');
+assert.equal(resumedSections.getState().done,true);
+console.log('Разделы: блокировка, проверка последнего шага, восстановление из LMS и итог проверены.');

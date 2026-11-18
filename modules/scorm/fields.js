@@ -2,12 +2,55 @@
 (function(root){'use strict';
 const key=(s,f)=>s+'/'+f,fields=s=>s.type==='input'?[{id:'single',label:s.label,rule:s.rule||'exact',expected:s.expected}]:s.fields||[];
 const links=s=>s.type==='end'?[]:[...(s.options?s.options.filter(o=>!o.wrong&&o.next).map(o=>o.next):s.next?[s.next]:[]),...(s.jumps||[]).map(j=>j.next).filter(Boolean)];
-function graph(course){const byId=new Map(course.steps.map(s=>[s.id,s])),reachable=new Set(),stack=[course.start],pre=new Map(course.steps.map(s=>[s.id,[]]));while(stack.length){const id=stack.pop();if(reachable.has(id)||!byId.has(id))continue;reachable.add(id);stack.push(...links(byId.get(id)));}for(const s of course.steps)for(const to of links(s))if(pre.has(to))pre.get(to).push(s.id);const dom=new Map([...reachable].map(id=>[id,new Set(id===course.start?[id]:reachable)]));let changed=true;while(changed){changed=false;for(const id of reachable){if(id===course.start)continue;const ps=pre.get(id).filter(x=>reachable.has(x));let v=new Set(ps.length?dom.get(ps[0]):[]);for(const parent of ps.slice(1))v=new Set([...v].filter(x=>dom.get(parent).has(x)));v.add(id);const old=dom.get(id);if(v.size!==old.size||[...v].some(x=>!old.has(x))){dom.set(id,v);changed=true;}}}return {byId,reachable,dom};}
+// Section menus expose all destinations to the editor. Learners follow this ordered graph.
+function sectionLinks(course){
+ const overrides=new Map();
+ for(const menu of course.steps.filter(s=>s.template==='sections'&&s.sections?.length)){
+  overrides.set(menu.id,[menu.sections[0].next]);
+  menu.sections.forEach((section,i)=>overrides.set(section.finish,[menu.sections[i+1]?.next||menu.next]));
+ }
+ return step=>overrides.get(step.id)||links(step);
+}
+function sectionIssues(course){
+ const byId=new Map(course.steps.map(s=>[s.id,s])),issues=[],owners=new Set();
+ for(const menu of course.steps.filter(s=>s.template==='sections')){
+  const add=message=>issues.push({id:menu.id,message});
+  if(byId.get(menu.next)?.type!=='end')add('Выберите итоговый экран курса.');
+  if(!Array.isArray(menu.sections)||!menu.sections.length){add('Добавьте хотя бы один раздел.');continue;}
+  for(const section of menu.sections){
+   const finish=byId.get(section.finish);
+   const destinations=finish?links(finish):[];
+   const name=String(section.label||'').trim();
+   if(!name||!byId.has(section.next)||!destinations.length||destinations.some(id=>id!==menu.id)){
+    add('Укажите название, первый и последний шаг раздела. Все переходы с последнего шага должны вести к выбору раздела.');
+    continue;
+   }
+   const visited=new Set(),queue=[section.next];
+   while(queue.length){
+    const id=queue.pop(),step=byId.get(id);
+    if(visited.has(id))continue;
+    if(!step||step.type==='end'||step.template==='sections'||owners.has(id)){
+     add('Проверьте маршрут раздела «'+name+'»: он должен вести к своему последнему шагу.');
+     break;
+    }
+    visited.add(id);
+    if(id!==finish.id)queue.push(...links(step));
+   }
+   if(visited.has(course.start)||course.steps.some(step=>step.id!==menu.id&&!visited.has(step.id)&&links(step).some(id=>visited.has(id)))){
+    add('В раздел «'+name+'» можно входить только через его карточку.');
+   }
+   if(!visited.has(finish.id))add('В разделе «'+name+'» последний шаг недоступен.');
+   visited.forEach(id=>owners.add(id));
+  }
+ }
+ return issues;
+}
+function graph(course){const links=sectionLinks(course);const byId=new Map(course.steps.map(s=>[s.id,s])),reachable=new Set(),stack=[course.start],pre=new Map(course.steps.map(s=>[s.id,[]]));while(stack.length){const id=stack.pop();if(reachable.has(id)||!byId.has(id))continue;reachable.add(id);stack.push(...links(byId.get(id)));}for(const s of course.steps)for(const to of links(s))if(pre.has(to))pre.get(to).push(s.id);const dom=new Map([...reachable].map(id=>[id,new Set(id===course.start?[id]:reachable)]));let changed=true;while(changed){changed=false;for(const id of reachable){if(id===course.start)continue;const ps=pre.get(id).filter(x=>reachable.has(x));let v=new Set(ps.length?dom.get(ps[0]):[]);for(const parent of ps.slice(1))v=new Set([...v].filter(x=>dom.get(parent).has(x)));v.add(id);const old=dom.get(id);if(v.size!==old.size||[...v].some(x=>!old.has(x))){dom.set(id,v);changed=true;}}}return {byId,reachable,dom};}
 function remembered(c){const r=new Set();for(const s of c.steps)for(const f of fields(s)){if(f.remember)r.add(key(s.id,f.id));if(f.rule==='match'&&f.match)r.add(key(f.match.stepId,f.match.fieldId));}return r;}
 function issues(c){const r=[],g=graph(c),sources=new Set(),add=(s,f,message)=>r.push({id:s.id,fieldId:f.id,message});if(remembered(c).size>12)r.push({message:'Можно отслеживать до 12 полей для сравнения.'});for(const s of c.steps){const local=fields(s),seen=new Set();for(let i=0;i<local.length;i++){const f=local[i];if(!/^[-a-zA-Z0-9_]{1,80}$/.test(f.id)||seen.has(f.id)){add(s,f,'Поля должны иметь уникальные ID.');continue;}seen.add(f.id);const kind=f.kind||'text';if(!['text','select','checkbox','radio','selection'].includes(kind))add(s,f,'Неизвестный элемент формы.');if(['select','radio'].includes(kind)){const opts=(f.choices||'').split('\n').map(x=>x.trim()).filter(Boolean);if(opts.length<2||new Set(opts).size!==opts.length)add(s,f,'Задайте минимум два разных варианта, каждый с новой строки.');if(!opts.includes(String(f.expected||'')))add(s,f,'Правильный вариант должен присутствовать в списке.');if(f.initial&&!opts.includes(f.initial))add(s,f,'Начальное значение отсутствует в списке.');}
 if(!['exact','any','url','match','oneOf','range','email','phone'].includes(f.rule||'exact'))add(s,f,'Неизвестный способ проверки.');if(kind==='text'){if(['exact','url'].includes(f.rule||'exact')&&!String(f.expected||'').trim())add(s,f,'Укажите правильное значение.');if(f.rule==='oneOf'&&!String(f.accepted||'').split('\n').some(x=>x.trim()))add(s,f,'Добавьте допустимые значения с новой строки.');if(f.rule==='range'&&(!Number.isFinite(Number(f.min))||!Number.isFinite(Number(f.max))||f.min===''||f.max===''||Number(f.min)>Number(f.max)))add(s,f,'Укажите корректный диапазон от меньшего числа к большему.');}
 for(const [type,ref] of [['match',f.rule==='match'?f.match:null],['autofill',f.autofill]]){if(!ref){if(type==='match'&&f.rule==='match')add(s,f,'Выберите исходное поле для сравнения.');continue;}const src=g.byId.get(ref.stepId),sf=src?fields(src):[],at=sf.findIndex(x=>x.id===ref.fieldId);if(!src||at<0){add(s,f,'Выберите существующее исходное поле.');continue;}if(src.id===s.id&&(type==='autofill'||at>=i))add(s,f,'Исходное поле должно заполняться на предыдущем шаге или раньше повторного ввода.');if(src.id!==s.id&&g.reachable.has(s.id)&&!g.dom.get(s.id)?.has(src.id))add(s,f,'Исходное поле может быть пропущено на одной из веток.');if(type==='autofill'){sources.add(key(src.id,sf[at].id));if(sf[at].inputType==='password')add(s,f,'Пароли доступны для сравнения, но не для Autofill.');}}}}
 if(sources.size>8)r.push({message:'Autofill поддерживает до 8 исходных полей на курс.'});return r;}
 function candidates(c,sid,fid){const g=graph(c),target=g.byId.get(sid);if(!target)return [];const ti=fields(target).findIndex(f=>f.id===fid),to=c.steps.indexOf(target),used=remembered(c),r=[];c.steps.forEach((s,order)=>fields(s).forEach((f,i)=>{const earlier=s.id===sid?i<ti:g.reachable.has(sid)?g.dom.get(sid)?.has(s.id):order<to;if(earlier)r.push({stepId:s.id,fieldId:f.id,stepTitle:s.title||'Шаг',label:f.label||'Поле',starred:used.has(key(s.id,f.id)),inputType:f.inputType,kind:f.kind||'text'});}));return r;}
-const api={key,fields,remembered,issues,candidates};root.ScenaFields=api;if(typeof module!=='undefined')module.exports=api;
+const api={key,fields,remembered,issues,candidates,sectionLinks,sectionIssues};root.ScenaFields=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
