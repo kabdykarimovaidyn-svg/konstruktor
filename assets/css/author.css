@@ -14,7 +14,7 @@
 .canvas-type-choice>label:first-child,.canvas-type-choice>[data-area-add]{display:none}.static-slide{display:block;width:100%;border:1px solid #d7e0ea;border-radius:4px}
 .canvas-surface .zone{min-height:0;min-width:0}.canvas-surface.drawing,.canvas-surface.drawing .zone{cursor:crosshair}
 /* Preview uses the iframe height as the actual course viewport. */
-#preview-dialog{height:min(94dvh,900px);max-height:94dvh;overflow:hidden}#preview-dialog[open]{display:flex;flex-direction:column}.preview-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;padding:2px 10px;border-top:1px solid var(--line);background:#fff;color:var(--muted);font-size:11px}.preview-footer button{min-height:26px;padding:3px 12px;font-size:11px}#preview-frame{display:block;flex:1;min-height:0;height:auto;width:100%}
+#preview-dialog{height:min(94dvh,900px);max-height:94dvh;overflow:hidden}#preview-dialog[open]{display:flex;flex-direction:column}#preview-frame{display:block;flex:1;min-height:0;height:auto;width:100%}
 
 .author-business-cover{background:white;border:1px solid #dce5ef;border-top:4px solid var(--accent,#005ca9);padding:35px;min-height:450px;display:flex;flex-direction:column}
 .author-business-brand{padding-bottom:20px;border-bottom:1px solid #dde5ed}

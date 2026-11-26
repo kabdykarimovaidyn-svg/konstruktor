@@ -129,6 +129,6 @@ previewContext.preview('sections');
 assert.equal(JSON.parse(elements['preview-frame'].srcdoc).start,previewMenu.id);
 assert.equal(JSON.parse(elements['preview-frame'].srcdoc).previewSectionMenu,false);
 const previewMarkup=fs.readFileSync(require.resolve('../index.html'),'utf8').match(/<dialog id="preview-dialog".*?<\/dialog>/)[0];
-assert.doesNotMatch(previewMarkup,/dialog-bar|id="preview-mode"/);
-assert.ok(previewMarkup.indexOf('</iframe>')<previewMarkup.indexOf('id="close-preview"'));
+assert.match(previewMarkup,/<iframe [^>]+><\/iframe><\/dialog>$/);
+assert.match(context.ScenaPlayer.markup,/<span id="errors"[^>]*><\/span><button [^>]*id="close-preview"[^>]* hidden>Закрыть<\/button>/);
 console.log('Предпросмотр с выбранного шага использует меню режимов плеера, отдельный шаг имеет выход к разделам.');
