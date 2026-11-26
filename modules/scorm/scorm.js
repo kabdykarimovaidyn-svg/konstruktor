@@ -9,6 +9,7 @@ function validate(course){
  if(!Array.isArray(course.steps)||!course.steps.length||course.steps.length>500)throw Error('Нужно от 1 до 500 шагов.');
  const ids=new Set();let endings=0;
  course.steps.forEach(s=>{if(!/^[-a-zA-Z0-9_]{1,80}$/.test(s.id)||ids.has(s.id))throw Error('ID шагов должны быть уникальными.');ids.add(s.id);if(!['input','choice','click','video','form','message','return','end','intro','slide'].includes(s.type))throw Error('Неизвестный тип шага.');if(s.type==='end')endings++;});
+ if(course.mode==='guided'&&course.steps.filter(step=>step.template==='sections').length!==1)throw Error('Для общего обучения и экзамена нужна одна страница выбора разделов.');
  if(!ids.has(course.start)||!endings)throw Error('Нужны стартовый и финальный шаги.');
  const links=s=>[...(s.template==='sections'?(s.sections||[]).map(card=>card.next).filter(Boolean):[]),...(s.options?.filter(o=>!o.wrong).map(o=>o.next).filter(Boolean)||(s.next?[s.next]:[])),...(s.jumps||[]).map(j=>j.next)];
  for(const s of course.steps){
@@ -52,7 +53,7 @@ function runtime(win){
  function time(){const total=Math.min(35999999,Math.floor((Date.now()-started)/10));return String(Math.floor(total/360000)).padStart(4,'0')+':'+String(Math.floor(total/6000)%60).padStart(2,'0')+':'+String(Math.floor(total/100)%60).padStart(2,'0')+'.'+String(total%100).padStart(2,'0');}
  return {get,save(state){if(finished)return true;const data=JSON.stringify(state);if(data.length>4096)throw Error('Слишком много данных прогресса.');if(!active)return !api;
  const results=[set('cmi.suspend_data',data),set('cmi.core.lesson_location',state.step),set('cmi.core.session_time',time()),set('cmi.core.exit',state.done?'':'suspend')];
- if(state.done){if(state.scored!==false)results.push(set('cmi.core.score.min',0),set('cmi.core.score.max',100),set('cmi.core.score.raw',state.score));results.push(set('cmi.core.lesson_status','completed'));}
+ if(state.done){if(state.scored!==false)results.push(set('cmi.core.score.min',0),set('cmi.core.score.max',100),set('cmi.core.score.raw',state.score));results.push(set('cmi.core.lesson_status',state.trained&&state.mode==='test'?'passed':'completed'));}
  results.push(String(call('LMSCommit',''))==='true');return results.every(Boolean);},finish(state){if(finished)return true;if(!this.save(state))return false;if(active&&String(call('LMSFinish',''))!=='true')return false;finished=true;active=false;return true;},get connected(){return active;},get warnings(){return warnings.slice();},initialStatus};
 }
 function crc32(bytes){let c=0xffffffff;for(const b of bytes){c^=b;for(let i=0;i<8;i++)c=(c>>>1)^((c&1)?0xedb88320:0);}return (c^0xffffffff)>>>0;}

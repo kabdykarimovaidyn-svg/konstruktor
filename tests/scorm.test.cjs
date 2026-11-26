@@ -20,6 +20,12 @@ function fakeLMS(values={},reject=''){
  const completed={...state,step:'end',done:true,score:90};bridge.save(completed);assert.equal(lms.data['cmi.core.lesson_status'],'completed');assert.equal(lms.data['cmi.core.score.raw'],'90');assert.equal(lms.data['cmi.core.exit'],'');assert.match(lms.data['cmi.core.session_time'],/^\d{4}:\d{2}:\d{2}\.\d{2}$/);
  assert.equal(bridge.finish(completed),true);assert.equal(bridge.finish(completed),true);assert.equal(lms.calls.filter(c=>c[0]==='finish').length,1);
  const resumed=runtime(win);assert.equal(JSON.parse(resumed.get('cmi.suspend_data')).step,'end');assert.equal(lms.data['cmi.core.lesson_status'],'completed');
+ const guidedLMS=fakeLMS(),guidedWin={API:guidedLMS.API};guidedWin.parent=guidedWin;
+ const guidedRuntime=runtime(guidedWin);
+ assert.equal(guidedRuntime.save({...state,mode:'test',trained:true,failed:'section-2'}),true);
+ assert.equal(guidedLMS.data['cmi.core.lesson_status'],'incomplete');
+ assert.equal(guidedRuntime.save({...completed,mode:'test',trained:true}),true);
+ assert.equal(guidedLMS.data['cmi.core.lesson_status'],'passed');
  const learningLMS=fakeLMS(),learningWin={API:learningLMS.API};learningWin.parent=learningWin;
  const learningRuntime=runtime(learningWin),learningDone={...completed,scored:false,mode:'learn',errors:0,score:0};
  assert.equal(learningRuntime.save(learningDone),true);assert.equal(learningLMS.data['cmi.core.lesson_status'],'completed');

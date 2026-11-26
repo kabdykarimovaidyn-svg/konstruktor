@@ -3,8 +3,8 @@
 'use strict';
 function run(course,runtimeFactory,visualMarkup){
  if(!visualMarkup&&window.ScenaVisuals)visualMarkup=window.ScenaVisuals.markup;
- const exam=course.mode==='test',learning=course.mode==='learn';
- if(document.documentElement)document.documentElement.setAttribute('data-course-mode',exam?'test':'learn');
+ const guided=course.mode==='guided';
+ let exam=course.mode==='test',learning=course.mode==='learn'||guided;
  const byId=Object.fromEntries(course.steps.map(s=>[s.id,s]));
  const sectionMenus=course.steps.filter(s=>s.template==='sections');
  const sectionPreview=course.previewScope==='step';
@@ -19,11 +19,20 @@ function run(course,runtimeFactory,visualMarkup){
   return [...(step.options?step.options.filter(o=>!o.wrong).map(o=>o.next):[step.next]),...(step.jumps||[]).map(j=>j.next)];
  }
  const api=course.preview?{connected:false,warnings:[],get:()=>'',save:()=>true,finish:()=>true}:runtimeFactory(window);
- const freshState=()=>({v:4,mode:course.mode||'legacy',scored:!learning,values:{},progress:'',course:course.id,step:course.start,errors:0,done:false,score:0,time:0,refs:{},salt:''});
+ const freshState=()=>({v:4,mode:guided?'learn':course.mode||'legacy',scored:!learning,values:{},progress:'',course:course.id,step:course.start,errors:0,done:false,score:0,time:0,refs:{},salt:''});
  let state=freshState(),currentVideo=null,lastSave=0,generation=0;let frames=new Map(),screenValues=new Map(),rememberScreen=null,replay=null;
  const imageRatios=new Map();
- try{const v=JSON.parse(api.get('cmi.suspend_data'));if([1,2,3,4].includes(v.v)&&v.course===course.id&&(!v.mode||v.mode===(course.mode||'legacy'))&&byId[v.step]&&Number.isInteger(v.errors)&&v.errors>=0&&typeof v.done==='boolean'&&Number.isFinite(v.score)&&v.score>=0&&v.score<=100)state={...state,...v,done:byId[v.step].type==='end'&&v.done,time:Math.max(0,Number(v.time)||0)};}catch{}
- state.mode=course.mode||'legacy';state.scored=!learning;if(learning){state.errors=0;state.score=0;}
+ try{const v=JSON.parse(api.get('cmi.suspend_data'));if([1,2,3,4].includes(v.v)&&v.course===course.id&&(guided?['learn','test'].includes(v.mode):!v.mode||v.mode===(course.mode||'legacy'))&&byId[v.step]&&Number.isInteger(v.errors)&&v.errors>=0&&typeof v.done==='boolean'&&Number.isFinite(v.score)&&v.score>=0&&v.score<=100)state={...state,...v,done:(guided?v.mode==='test'&&v.trained:byId[v.step].type==='end')&&v.done,time:Math.max(0,Number(v.time)||0)};}catch{}
+ if(guided){
+  state.trained=state.trained===true;
+  if(state.mode==='test'&&!state.trained)state=freshState();
+  exam=state.mode==='test';learning=!exam;
+ }else state.mode=course.mode||'legacy';
+ state.scored=!learning;if(learning){state.errors=0;state.score=0;}
+ const allSections=sectionMenus.flatMap(menu=>menu.sections.map(card=>({menu,card})));
+ const allPassed=()=>allSections.length>0&&allSections.every(({card})=>complete(card));
+ const penalty=Number.isFinite(course.penalty)?course.penalty:10,passingScore=80;
+ const failedSection=()=>allSections.find(({card})=>card.next===state.failed);
  const $=id=>document.getElementById(id);$('title').textContent=course.title;
  const refKey=(step,field)=>step+'/'+field,needed=new Set();
  for(const step of course.steps)for(const f of step.type==='input'?[{id:'single',remember:step.remember}]:step.fields||[]){if(f.remember)needed.add(refKey(step.id,f.id));if(f.rule==='match'&&f.match)needed.add(refKey(f.match.stepId,f.match.fieldId));}
@@ -49,8 +58,8 @@ function run(course,runtimeFactory,visualMarkup){
  function el(tag,value,parent,cls){const e=document.createElement(tag);if(value!==undefined)e.textContent=String(value);if(cls)e.className=cls;if(parent)parent.append(e);return e;}
  function button(label,fn,parent,cls){const b=el('button',label,parent,cls);b.type='button';b.onclick=fn;return b;}
  function wrong(message){if(!learning&&!replay)state.errors++;stats();$('feedback').textContent=exam?'Неверное действие. Попробуйте ещё раз.':message||byId[state.step].error||'Неверное действие. Попробуйте ещё раз.';$('feedback').className='error';save();}
- function go(id){if(!byId[id]){$('feedback').textContent='Переход не настроен. Обратитесь к автору курса.';return;}
-  if(replay&&id===replay.state.step){exitReplay();return;}
+ function go(id,record=true){if(!byId[id]){$('feedback').textContent='Переход не настроен. Обратитесь к автору курса.';return;}
+  if(replay&&id===replay.menu.id){exitReplay();return;}
   if(!sectionPreview){
    for(const menu of sectionMenus){
     const card=menu.sections.find(section=>section.next===id);
@@ -61,23 +70,147 @@ function run(course,runtimeFactory,visualMarkup){
     }
    }
   }
-  rememberScreen?.();if(currentVideo){if(byId[id].type==='choice'&&byId[id].video===state.step){state.frameId=state.step;state.frameTime=Number.isFinite(currentVideo.currentTime)?currentVideo.currentTime:0;try{const c=document.createElement('canvas');c.width=currentVideo.videoWidth;c.height=currentVideo.videoHeight;if(c.width&&c.height){c.getContext('2d').drawImage(currentVideo,0,0);frames.set(state.step,c.toDataURL('image/jpeg',.85));if(frames.size>6)frames.delete(frames.keys().next().value);}}catch{}}currentVideo.pause();currentVideo=null;}if(!replay)mark(state.step);state.step=id;state.time=0;save();render();}
+  if(guided&&!replay&&byId[id].type==='end'&&!allPassed()){
+   $('feedback').textContent='Сначала пройдите все разделы.';return;
+  }
+  if(guided&&exam&&!replay&&state.attempt){
+   const section=allSections.find(({card})=>card.next===state.attempt.start);
+   if(section?.card.finish===state.step&&section.menu.id===id){
+    if(100-(state.errors-state.attempt.errors)*penalty<passingScore){failSection(section);return;}
+    delete state.attempt;
+   }
+  }
+  rememberScreen?.();if(currentVideo){if(byId[id].type==='choice'&&byId[id].video===state.step){state.frameId=state.step;state.frameTime=Number.isFinite(currentVideo.currentTime)?currentVideo.currentTime:0;try{const c=document.createElement('canvas');c.width=currentVideo.videoWidth;c.height=currentVideo.videoHeight;if(c.width&&c.height){c.getContext('2d').drawImage(currentVideo,0,0);frames.set(state.step,c.toDataURL('image/jpeg',.85));if(frames.size>6)frames.delete(frames.keys().next().value);}}catch{}}currentVideo.pause();currentVideo=null;}if(!replay&&record)mark(state.step);state.step=id;state.time=0;save();render();}
  function overlay(e,r){if(r){e.style.position='absolute';e.style.left=r.x+'%';e.style.top=r.y+'%';e.style.width=r.w+'%';e.style.height=r.h+'%';}}
  function fit(e){e.onloadedmetadata=()=>{if(Number.isFinite(e.duration)&&e.duration>0){e.currentTime=Math.max(0,e.duration-.04);e.pause();}};e.onseeked=()=>e.pause();}
 
- function startReplay(menu,card){
-  if(replay||sectionPreview||state.step!==menu.id||!complete(card))return;
-  replay={state,frames,screenValues,card};
+ function stopVideo(){
+  currentVideo?.pause();currentVideo=null;lastSave=0;
+ }
+ function startReplay(menu,card,practice=false){
+  if(replay||sectionPreview||(!practice&&!complete(card)))return;
+  rememberScreen?.();
+  if(currentVideo&&Number.isFinite(currentVideo.currentTime))state.time=currentVideo.currentTime;
+  stopVideo();
+  replay={state,frames,screenValues,card,menu,exam,learning,practice};
   state={...state,step:card.next,time:0,values:{...state.values},refs:{...state.refs}};
-  frames=new Map();screenValues=new Map();lastSave=0;
+  if(practice){exam=false;learning=true;}
+  frames=new Map();screenValues=new Map();
   render();
  }
  function exitReplay(){
   if(!replay)return;
-  currentVideo?.pause();currentVideo=null;
-  ({state,frames,screenValues}=replay);
-  replay=null;lastSave=0;
+  stopVideo();
+  ({state,frames,screenValues,exam,learning}=replay);
+  replay=null;
   render();
+ }
+ function selectSection(menu,card){
+  if(sectionPreview){go(card.next);return;}
+  if(replay||state.failed)return;
+  if(complete(card)){startReplay(menu,card);return;}
+  if(card!==nextSection(menu)||state.attempt)return;
+  if(guided&&exam)state.attempt={start:card.next,progress:state.progress,errors:state.errors};
+  go(card.next,false);
+ }
+ function failSection({menu,card}){
+  const attempted=state.attempt;
+  const pending=[card.next],steps=new Set();
+  while(pending.length){
+   const id=pending.pop(),step=byId[id];
+   if(!step||id===menu.id||steps.has(id))continue;
+   steps.add(id);
+   if(id!==card.finish)pending.push(...routeLinks(step));
+  }
+  stopVideo();
+  for(const key of Object.keys(state.values))if(steps.has(key.split('/')[0]))delete state.values[key];
+  for(const key of Object.keys(state.refs))if(steps.has(key.split('/')[0]))delete state.refs[key];
+  for(const id of steps){frames.delete(id);screenValues.delete(id);}
+  state.failedScore=Math.max(0,100-(state.errors-attempted.errors)*penalty);
+  state.failed=card.next;state.progress=attempted.progress;state.errors=attempted.errors;
+  state.step=menu.id;state.time=0;delete state.attempt;
+  save();render();
+ }
+ function retryExam(menu,card){
+  if(state.failed!==card.next)return;
+  delete state.failed;delete state.failedScore;
+  selectSection(menu,card);
+ }
+ function startExam(){
+  if(!guided||!learning||replay||!state.trained||!allPassed())return;
+  const previous=state;
+  state={...freshState(),mode:'test',scored:true,trained:true};
+  if(!save()){state=previous;return;}
+  stopVideo();frames.clear();screenValues.clear();exam=true;learning=false;render();
+ }
+ function submitExam(){
+  if(!exam||state.done||!allPassed()||state.attempt||state.failed)return;
+  state.score=Math.round(100-state.errors*penalty/allSections.length);
+  state.done=true;
+  if(!save()){state.done=false;state.score=0;return;}
+  render();
+ }
+ function sectionControls(){
+  const nav=$('course-sections');
+  if(!nav)return;
+  nav.replaceChildren();nav.hidden=!allSections.length||sectionPreview;
+  if(nav.hidden)return;
+  const select=el('select',undefined,nav);
+  select.setAttribute('aria-label','Разделы курса');
+  el('option','Разделы',select).value='';
+  for(const [index,{menu,card}] of allSections.entries()){
+   const done=complete(card),allowed=done||(!state.attempt&&card===nextSection(menu)&&(state.step===menu.id||visited(course.steps.indexOf(menu))));
+   const option=el('option',(index+1)+'. '+card.label+(done?' — пройден':allowed?'':' — закрыт'),select);
+   option.value=String(index);option.disabled=!allowed||!!replay||!!state.failed;
+  }
+  select.disabled=!!replay||!!state.failed;
+  select.onchange=()=>{
+   if(select.value==='')return;
+   const target=select.options[select.selectedIndex];
+   if(target?.disabled||select.disabled)return;
+   const {menu,card}=allSections[Number(select.value)];
+   select.value='';selectSection(menu,card);
+  };
+  if(!guided)return;
+  const modes=$('course-modes');
+  if(!modes)return;
+  modes.replaceChildren();modes.hidden=false;
+  const train=button('Обучение',()=>{
+   const failed=failedSection();
+   if(failed&&!replay)startReplay(failed.menu,failed.card,true);
+  },modes,'course-mode');
+  train.disabled=learning||!state.failed||!!replay;
+  train.setAttribute('aria-pressed',String(learning));
+  const test=button('Экзамен',()=>{
+   if(replay?.practice){exitReplay();return;}
+   if(learning&&state.trained)go(allSections.at(-1).menu.next);
+  },modes,'course-mode');
+  test.disabled=exam||!state.trained||(!!replay&&!replay.practice);
+  test.setAttribute('aria-pressed',String(exam));
+ }
+ function renderGuidedResult(area){
+  const failed=failedSection();
+  const card=el('div',undefined,area,'completion-card guided-result');
+  const actions=el('div',undefined,undefined,'completion-actions');
+  if(failed){
+   el('h2','Раздел не сдан',card,'completion-title');
+   el('p',failed.card.label+' · '+state.failedScore+' из 100. Для сдачи нужно '+passingScore+'.',card,'completion-hint');
+   button('Вернуться к обучению',()=>startReplay(failed.menu,failed.card,true),actions,'restart-button');
+   button('Повторить экзамен по разделу',()=>retryExam(failed.menu,failed.card),actions);
+  }else if(learning){
+   if(!state.trained&&allPassed()){state.trained=true;save();sectionControls();}
+   el('h2','Обучение завершено',card,'completion-title');
+   el('p','После начала экзамена обучение будет доступно только при провале раздела.',card,'completion-hint');
+   button('Начать экзамен',startExam,actions);
+  }else if(state.done){
+   el('h2','Экзамен сдан',card,'completion-title');
+   el('p','Результат: '+state.score+' из 100',card,'completion-hint');
+   button('На начальную страницу',()=>go(course.start),actions);
+  }else{
+   el('h2','Все разделы экзамена пройдены',card,'completion-title');
+   button('Сдать экзамен',submitExam,actions);
+  }
+  card.append(actions);
  }
  function restartLearning(){
   if(!learning||finished||finishing)return;if(!save())return;
@@ -102,7 +235,7 @@ function run(course,runtimeFactory,visualMarkup){
  }
  function fitMedia(){if(!mediaViewport?.getBoundingClientRect||!mediaStage)return;const box=mediaViewport.getBoundingClientRect(),cs=window.getComputedStyle(mediaViewport),innerW=mediaViewport.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),innerH=mediaViewport.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom),w=Math.max(1,Math.floor(Math.min(innerW,innerH*mediaRatio)-1))*mediaZoom;mediaStage.style.width=w+'px';mediaStage.style.height=w/mediaRatio+'px';if(mediaStage.style.setProperty)mediaStage.style.setProperty('--field-font',Math.max(9,Math.min(20,w/60))+'px');fitFields();}
  function watchMedia(stage,viewport,ratio=16/9){mediaStage=stage;mediaViewport=viewport;mediaRatio=ratio;fitMedia();}
- function footer(area){const tools=el('div',undefined,area,'screen-tools');if(replay)button('К разделам',exitReplay,tools);else el('span',$('step').textContent,tools,'page-caption');return tools;}
+ function footer(area){const tools=el('div',undefined,area,'screen-tools');if(replay)button(replay.practice?'К результату раздела':replay.state.step===replay.menu.id?'К разделам':'Вернуться к прохождению',exitReplay,tools);else el('span',$('step').textContent,tools,'page-caption');return tools;}
  function resizeLayout(){fitMedia();}
  const requestFit=()=>{if(typeof window.requestAnimationFrame==='function')window.requestAnimationFrame(resizeLayout);else resizeLayout();};
  if(window.ResizeObserver){const observer=new ResizeObserver(requestFit);observer.observe($('screen'));if($('task-banner'))observer.observe($('task-banner'));}
@@ -120,8 +253,8 @@ function run(course,runtimeFactory,visualMarkup){
  function renderGuide(step,parent){
   const guide=el('section',undefined,parent,'learner-guide');
   el('h2',step.title||'Как проходить тренажёр',guide);
-  if(learning)el('p','Ошибки объясняются без штрафов. После завершения можно пройти обучение заново.',guide,'guide-note');
-  if(exam)el('p','Экзамен: без подсветки и подсказок. Ошибки влияют на оценку. Кнопки повторного прохождения нет.',guide,'guide-note');
+  if(learning)el('p',guided?'Ошибки объясняются без штрафов. Экзамен откроется после всех разделов обучения.':'Ошибки объясняются без штрафов. После завершения можно пройти обучение заново.',guide,'guide-note');
+  if(exam)el('p',guided?'Экзамен проходит без подсказок. Для сдачи раздела нужно '+passingScore+' баллов. При провале можно повторить раздел или вернуться к обучению.':'Экзамен: без подсветки и подсказок. Ошибки влияют на оценку. Кнопки повторного прохождения нет.',guide,'guide-note');
   el('p','Посмотрите, что означают элементы на экране.',guide,'guide-subtitle');
   const grid=el('div',undefined,guide,'guide-layout');
   const demo=el('div',undefined,grid,'guide-demo');
@@ -159,6 +292,7 @@ function run(course,runtimeFactory,visualMarkup){
    el('strong',separator<0?line:line.slice(0,separator),text);
    if(separator>=0)el('p',learning&&line==='Счётчик ошибок|Справа сверху показано количество неверных действий.'?'В обучении ошибки объясняются без подсчёта и снижения оценки.':line.slice(separator+1),text);
   }
+  if(allSections.length&&!sectionPreview)el('p','Разделы курса: откройте список «Разделы» в верхней панели. Здесь можно вернуться к пройденным разделам текущего режима. Следующий раздел открывается после предыдущего.',guide,'guide-note');
   el('p','При переходе между экранами введённые данные сохраняются в текущем прохождении.',guide,'guide-note');
  }
  function renderBusinessBrand(cover){
@@ -209,7 +343,7 @@ function run(course,runtimeFactory,visualMarkup){
    const open=sectionPreview||card===active;
    const slot=el('li',undefined,list,'section-slot');
    const style='section-card '+(done?'section-done':open?'section-open':'section-locked');
-   const item=open?button(undefined,()=>go(card.next),slot,style):el('div',undefined,slot,style);
+   const item=open?button(undefined,()=>selectSection(menu,card),slot,style):el('div',undefined,slot,style);
    const icon=el('span',undefined,item,'section-icon');
    icon.setAttribute('aria-hidden','true');
    icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(Object.hasOwn(icons,card.icon)?icons[card.icon]:icons.folder)+'</svg>';
@@ -227,6 +361,12 @@ function run(course,runtimeFactory,visualMarkup){
  }
  function render(){
   generation++;rememberScreen=null;mediaViewport=null;mediaStage=null;mediaZoom=1;const version=generation;const s=byId[state.step],area=$('screen');area.replaceChildren();area.className=['intro','end'].includes(s.type)?'terminal-screen':'content-screen';if($('title').parentElement)$('title').parentElement.hidden=s.type==='intro';if($('course-progress'))$('course-progress').hidden=s.type==='intro';requestFit();$('feedback').textContent='';$('feedback').className='';$('task').textContent=instruction(s);$('step').textContent=s.type==='video'?'Видеоматериал':s.type==='choice'?'Вопрос':s.type==='message'?'Пояснение':s.type==='slide'?'Презентация':'Практическое задание';stats();progress();if($('task-title'))$('task-title').textContent=s.taskTitle||({video:'Просмотр видео',choice:'Выбор решения',form:'Работа в программе',click:'Работа в программе',message:'Изучение материала',slide:'Презентация'})[s.type]||'Учебный шаг';if($('task-banner')){const banner=$('task-banner');banner.hidden=['end','intro'].includes(s.type)||s.template==='guide';banner.style.visibility=s.template==='sections'?'hidden':'';}if($('work-bar'))$('work-bar').hidden=['end','intro'].includes(s.type);
+  document.documentElement?.setAttribute('data-course-mode',exam?'test':'learn');
+  sectionControls();
+  if(guided&&((state.failed&&!replay)||s.type==='end')){
+   area.className='terminal-screen';
+   renderGuidedResult(area);return;
+  }
   if(s.type==='return'){
    if(!learning&&!replay&&s.penalty!==false)state.errors++;
    // Return nodes are explicit in the graph; target must be a choice, so no automatic loop.
@@ -239,7 +379,8 @@ function run(course,runtimeFactory,visualMarkup){
    el('div','КОРПОРАТИВНОЕ ОБУЧЕНИЕ',center,'business-eyebrow');
    el('h2',course.title,center,'business-title');
    if(s.body?.trim())el('p',s.body,center,'business-description');
-   button('Начать',()=>go(s.next),center,'business-start');
+   if(guided&&state.done)el('p','Экзамен сдан',center,'business-description');
+   else button('Начать',()=>go(s.next),center,'business-start');
    renderBusinessFooter(card);
    return;
   }
@@ -381,6 +522,13 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 @media(max-width:650px){.guide-layout{grid-template-columns:1fr}.guide-demo{position:static}.guide-list{gap:12px}}
 @media(prefers-reduced-motion:reduce){.guide-active{animation:none}}
 
+ .course-sections select,.course-mode{font:inherit;font-size:12px;padding:4px 6px}
+.course-sections select{width:110px;max-width:26vw;color:#21384f;background:#fff;border:1px solid #bccedf;border-radius:4px}
+.course-modes{display:flex;gap:4px}
+.course-modes[hidden],.course-sections[hidden]{display:none}
+.course-mode[aria-pressed=true]{opacity:1;background:#edf4fa;color:#17456d;border-color:#a9c4db}
+.course-mode[aria-pressed=false]{background:white;color:#17456d;border-color:#a9c4db}
+@media(max-width:450px){.course-header:has(.course-modes:not([hidden])){flex-wrap:wrap}.course-header:has(.course-modes:not([hidden])) h1{width:100%}}
 .course-header[hidden],.segmented-progress[hidden]{display:none}
 .business-cover{width:100%;min-height:100%;background:#fff;border:1px solid #dce5ef;border-top:4px solid var(--accent);display:flex;flex-direction:column;padding:clamp(22px,4vw,55px);text-align:left;box-shadow:0 15px 40px #153c6410}
 .business-brand{border-bottom:1px solid #dde5ed;padding-bottom:24px;min-height:75px}
@@ -429,7 +577,7 @@ button[aria-invalid=true]{outline:2px solid #bc4431}
 @media(max-width:420px){.completion-actions{gap:12px;margin-top:20px}.completion-actions>button{padding:10px 8px;font-size:12px;min-height:44px}}
 
 `;
-const markup='<header class="course-header"><img id="course-logo" hidden alt="Логотип"><h1 id="title"></h1><span id="errors" class="error-counter" role="status"></span></header><main><div id="course-progress" class="segmented-progress" role="group"></div><section id="task-banner" class="task-banner" aria-label="Задание"><strong class="task-label">Задание</strong><h2 id="task-title" hidden></h2><p id="task"></p><button id="more-task" hidden type="button" aria-expanded="false">Полностью</button></section><div id="work-bar" hidden><span id="step"></span></div><div id="feedback" role="status" aria-live="polite"></div><section id="screen"></section><div id="session-warning" role="status" hidden></div></main>';
+const markup='<header class="course-header"><img id="course-logo" hidden alt="Логотип"><h1 id="title"></h1><div id="course-sections" class="course-sections" hidden></div><div id="course-modes" class="course-modes" hidden></div><span id="errors" class="error-counter" role="status"></span></header><main><div id="course-progress" class="segmented-progress" role="group"></div><section id="task-banner" class="task-banner" aria-label="Задание"><strong class="task-label">Задание</strong><h2 id="task-title" hidden></h2><p id="task"></p><button id="more-task" hidden type="button" aria-expanded="false">Полностью</button></section><div id="work-bar" hidden><span id="step"></span></div><div id="feedback" role="status" aria-live="polite"></div><section id="screen"></section><div id="session-warning" role="status" hidden></div></main>';
 
 root.ScenaPlayer={run,css,markup};
 })(typeof window!=='undefined'?window:globalThis);
