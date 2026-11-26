@@ -115,19 +115,48 @@ function run(course,runtimeFactory,visualMarkup){
   if(guided&&exam)state.attempt={start:card.next,progress:state.progress,errors:state.errors};
   go(card.next,false);
  }
- function failSection({menu,card}){
-  const attempted=state.attempt;
+ function sectionSteps(menu,card){
   const pending=[card.next],steps=new Set();
   while(pending.length){
    const id=pending.pop(),step=byId[id];
-   if(!step||id===menu.id||steps.has(id))continue;
+   if(!step||step.template==='sections'||step.type==='end'||id===menu.id||steps.has(id))continue;
    steps.add(id);
    if(id!==card.finish)pending.push(...routeLinks(step));
   }
-  stopVideo();
+  return steps;
+ }
+ function clearSectionData(steps){
   for(const key of Object.keys(state.values))if(steps.has(key.split('/')[0]))delete state.values[key];
   for(const key of Object.keys(state.refs))if(steps.has(key.split('/')[0]))delete state.refs[key];
   for(const id of steps){frames.delete(id);screenValues.delete(id);}
+  if(steps.has(state.frameId)){delete state.frameId;delete state.frameTime;}
+ }
+ function backToSections(menu){
+  if(!learning||sectionPreview)return;
+  if(replay){exitReplay();return;}
+  const card=nextSection(menu);
+  if(card){
+   const steps=sectionSteps(menu,card);
+   if(steps.has(state.step)){
+    if(state.step===card.finish&&byId[state.step].template==='section-end'){go(menu.id);return;}
+    const progress=state.progress.split('');
+    course.steps.forEach((step,index)=>{
+     const cell=Math.floor(index/4);
+     if(steps.has(step.id)&&progress[cell])progress[cell]=(parseInt(progress[cell],16)&~(1<<(index%4))).toString(16);
+    });
+    state.progress=progress.join('');
+    clearSectionData(steps);
+   }
+  }
+  // Direct navigation from the header never marks the screen that was abandoned.
+  stopVideo();
+  state.step=menu.id;state.time=0;
+  save();render();
+ }
+ function failSection({menu,card}){
+  const attempted=state.attempt;
+  stopVideo();
+  clearSectionData(sectionSteps(menu,card));
   state.failedScore=Math.max(0,100-(state.errors-attempted.errors)*penalty);
   state.failed=card.next;state.progress=attempted.progress;state.errors=attempted.errors;
   state.step=menu.id;state.time=0;delete state.attempt;
@@ -141,7 +170,7 @@ function run(course,runtimeFactory,visualMarkup){
  function startExam(){
   if(!guided||!learning||replay||!state.trained||!allPassed())return;
   const previous=state;
-  state={...freshState(),mode:'test',scored:true,trained:true};
+  state={...freshState(),mode:'test',scored:true,trained:true,step:sectionMenus[0].id};
   if(!save()){state=previous;return;}
   stopVideo();frames.clear();screenValues.clear();exam=true;learning=false;render();
  }
@@ -153,53 +182,48 @@ function run(course,runtimeFactory,visualMarkup){
   render();
  }
  function sectionControls(){
-  const nav=$('course-sections');
+  const nav=$('course-section-return'),menu=replay?.menu||sectionMenus[0];
   if(!nav)return;
-  nav.replaceChildren();nav.hidden=!allSections.length||sectionPreview;
-  if(nav.hidden)return;
-  const select=el('select',undefined,nav);
-  select.setAttribute('aria-label','Разделы курса');
-  el('option','Разделы',select).value='';
-  for(const [index,{menu,card}] of allSections.entries()){
-   const done=complete(card),allowed=done||(!state.attempt&&card===nextSection(menu)&&(state.step===menu.id||visited(course.steps.indexOf(menu))));
-   const option=el('option',(index+1)+'. '+card.label+(done?' — пройден':allowed?'':' — закрыт'),select);
-   option.value=String(index);option.disabled=!allowed||!!replay||!!state.failed;
-  }
-  select.disabled=!!replay||!!state.failed;
-  select.onchange=()=>{
-   if(select.value==='')return;
-   const target=select.options[select.selectedIndex];
-   if(target?.disabled||select.disabled)return;
-   const {menu,card}=allSections[Number(select.value)];
-   select.value='';selectSection(menu,card);
-  };
-  if(!guided)return;
-  const modes=$('course-modes');
-  if(!modes)return;
-  modes.replaceChildren();modes.hidden=false;
-  const train=button('Обучение',()=>{
+  const current=byId[state.step];
+  nav.hidden=!learning||!menu||sectionPreview||['intro','end'].includes(current.type)||current.template==='sections';
+  nav.onclick=nav.hidden?null:()=>backToSections(menu);
+ }
+ function renderSectionModes(menu,header){
+  const counts=el('div',undefined,header,'section-mode-picker');
+  counts.setAttribute('role','group');
+  counts.setAttribute('aria-label','Режим прохождения');
+  const total=menu.sections.length;
+  const done=menu.sections.filter(complete).length;
+  const trainingCount=exam&&state.trained?total:done;
+  const examCount=exam?done:0;
+  const training=button(undefined,()=>{
    const failed=failedSection();
-   if(failed&&!replay)startReplay(failed.menu,failed.card,true);
-  },modes,'course-mode');
-  train.disabled=learning||!state.failed||!!replay;
-  train.setAttribute('aria-pressed',String(learning));
-  const test=button('Экзамен',()=>{
-   if(replay?.practice){exitReplay();return;}
-   if(learning&&state.trained)go(allSections.at(-1).menu.next);
-  },modes,'course-mode');
-  test.disabled=exam||!state.trained||(!!replay&&!replay.practice);
+   if(failed)startReplay(failed.menu,failed.card,true);
+  },counts,'section-mode-button');
+  training.disabled=learning||!state.failed;
+  training.setAttribute('aria-pressed',String(learning));
+  el('strong','Обучение',training);
+  el('span','Пройдено '+trainingCount+' из '+total,training);
+  const test=button(undefined,()=>{if(learning&&allPassed())go(menu.next,false);},counts,'section-mode-button');
+  test.disabled=exam||!allPassed();
   test.setAttribute('aria-pressed',String(exam));
+  el('strong','Экзамен',test);
+  el('span','Сдано '+examCount+' из '+total,test);
+  if(learning&&!allPassed())el('p','Экзамен откроется после всех разделов обучения.',header,'section-summary');
+ }
+ function renderFailedSection(panel,{menu,card}){
+  const notice=el('div',undefined,panel,'section-failure');
+  notice.setAttribute('role','status');
+  el('strong','Раздел не сдан',notice);
+  el('p',card.label+' · '+state.failedScore+' из 100. Для сдачи нужно '+passingScore+'.',notice);
+  const actions=el('div',undefined,notice,'section-failure-actions');
+  button('Вернуться к обучению',()=>startReplay(menu,card,true),actions,'restart-button');
+  button('Повторить экзамен по разделу',()=>retryExam(menu,card),actions);
  }
  function renderGuidedResult(area){
-  const failed=failedSection();
   const card=el('div',undefined,area,'completion-card guided-result');
   const actions=el('div',undefined,undefined,'completion-actions');
-  if(failed){
-   el('h2','Раздел не сдан',card,'completion-title');
-   el('p',failed.card.label+' · '+state.failedScore+' из 100. Для сдачи нужно '+passingScore+'.',card,'completion-hint');
-   button('Вернуться к обучению',()=>startReplay(failed.menu,failed.card,true),actions,'restart-button');
-   button('Повторить экзамен по разделу',()=>retryExam(failed.menu,failed.card),actions);
-  }else if(learning){
+  if(learning){
    if(!state.trained&&allPassed()){state.trained=true;save();sectionControls();}
    el('h2','Обучение завершено',card,'completion-title');
    el('p','После начала экзамена обучение будет доступно только при провале раздела.',card,'completion-hint');
@@ -294,7 +318,16 @@ function run(course,runtimeFactory,visualMarkup){
    el('strong',separator<0?line:line.slice(0,separator),text);
    if(separator>=0)el('p',learning&&line==='Счётчик ошибок|Справа сверху показано количество неверных действий.'?'В обучении ошибки объясняются без подсчёта и снижения оценки.':line.slice(separator+1),text);
   }
-  if(allSections.length&&!sectionPreview)el('p','Разделы курса: откройте список «Разделы» в верхней панели. Здесь можно вернуться к пройденным разделам текущего режима. Следующий раздел открывается после предыдущего.',guide,'guide-note');
+  if(allSections.length&&!sectionPreview){
+   const navigation=el('div',undefined,guide,'guide-section-navigation');
+   el('strong','Выбор разделов',navigation);
+   el('p','Разделы открываются по порядку. На странице выбора видны пройденные, следующий доступный и закрытые разделы.',navigation);
+   if(learning){
+    el('span','Перейти к выбору разделов',navigation,'course-section-return guide-section-button');
+    el('p','Эта кнопка находится сверху. Пройденные разделы сохраняются. Если выйти из незавершённого, при следующем входе он начнётся сначала.',navigation);
+   }
+   if(guided)el('p','Режим выбирается на странице разделов. В экзамене кнопки выхода к разделам нет, а прогресс учитывается отдельно от обучения.',navigation);
+  }
   el('p','При переходе между экранами введённые данные сохраняются в текущем прохождении.',guide,'guide-note');
  }
  function renderBusinessBrand(cover){
@@ -329,9 +362,11 @@ function run(course,runtimeFactory,visualMarkup){
   const header=el('header',undefined,panel,'sections-heading');
   el('h2',menu.title||'Выберите раздел',header,'business-title');
   const count=sectionPreview?0:menu.sections.filter(complete).length;
-  const summary=el('p','Пройдено '+count+' из '+menu.sections.length,header,'section-summary');
-  summary.setAttribute('role','status');
+  if(!guided||sectionPreview)el('p','Пройдено '+count+' из '+menu.sections.length,header,'section-summary').setAttribute('role','status');
   const body=el('div',undefined,panel,'sections-body');
+  if(guided&&!sectionPreview)renderSectionModes(menu,body);
+  const failed=failedSection();
+  if(failed)renderFailedSection(body,failed);
   const list=el('ol',undefined,body,'sections-list');
   if(menu.sections.length===4)list.classList.add('sections-list-four');
   const icons={
@@ -340,9 +375,9 @@ function run(course,runtimeFactory,visualMarkup){
    shield:'<path d="m12 3 8 3v6c0 4-3 7-8 9-5-2-8-5-8-9V6z"/><path d="m9 12 2 2 4-4"/>',
    folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
   };
-  for(const card of menu.sections){
-   const done=!sectionPreview&&complete(card);
-   const open=sectionPreview||card===active;
+  for(const [index,card] of menu.sections.entries()){
+   const done=!sectionPreview&&complete(card),needsRetry=failed?.card===card;
+   const open=sectionPreview||card===active&&!failed;
    const slot=el('li',undefined,list,'section-slot');
    const style='section-card '+(done?'section-done':open?'section-open':'section-locked');
    const item=open?button(undefined,()=>selectSection(menu,card),slot,style):el('div',undefined,slot,style);
@@ -350,8 +385,10 @@ function run(course,runtimeFactory,visualMarkup){
    icon.setAttribute('aria-hidden','true');
    icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(Object.hasOwn(icons,card.icon)?icons[card.icon]:icons.folder)+'</svg>';
    const details=el('span',undefined,item,'section-details');
-   el('span',card.label,details,'section-label');
-   if(!open)el('span',done?'Пройден':'После предыдущего',details,'section-status');
+   const label=(index+1)+'. '+card.label;
+   el('span',label,details,'section-label');
+   const status=done?(exam?'Сдан':'Пройден'):needsRetry?'На пересдачу':open?'Доступен сейчас':'После раздела '+index;
+   el('span',status,details,'section-status');
    if(done){
     const action=button('Пройти заново',()=>startReplay(menu,card),item,'section-retry');
     action.title='Пройти заново';
@@ -359,13 +396,13 @@ function run(course,runtimeFactory,visualMarkup){
    }
   }
   renderBusinessFooter(panel);
-  if(!active||sectionPreview)button('К завершению курса',()=>go(menu.next),navigation(area),'sections-finish');
+  if((!active&&!failed&&(!guided||exam))||sectionPreview)button(guided&&exam?'К итогам экзамена':'К завершению курса',()=>go(menu.next),navigation(area),'sections-finish');
  }
  function render(){
   generation++;rememberScreen=null;mediaViewport=null;mediaStage=null;mediaZoom=1;const version=generation;const s=byId[state.step],area=$('screen');area.replaceChildren();area.className=(['intro','end'].includes(s.type)||s.template==='section-end')?'terminal-screen':'content-screen';if($('title').parentElement)$('title').parentElement.hidden=s.type==='intro';if($('course-progress'))$('course-progress').hidden=s.type==='intro';requestFit();$('feedback').textContent='';$('feedback').className='';$('task').textContent=instruction(s);$('step').textContent=s.type==='video'?'Видеоматериал':s.type==='choice'?'Вопрос':s.type==='message'?'Пояснение':s.type==='slide'?'Презентация':'Практическое задание';stats();progress();if($('task-title'))$('task-title').textContent=s.taskTitle||({video:'Просмотр видео',choice:'Выбор решения',form:'Работа в программе',click:'Работа в программе',message:'Изучение материала',slide:'Презентация'})[s.type]||'Учебный шаг';if($('task-banner')){const banner=$('task-banner');banner.hidden=['end','intro'].includes(s.type)||['guide','section-end'].includes(s.template);banner.style.visibility=s.template==='sections'?'hidden':'';}if($('work-bar'))$('work-bar').hidden=['end','intro'].includes(s.type);
   document.documentElement?.setAttribute('data-course-mode',exam?'test':'learn');
   sectionControls();
-  if(guided&&((state.failed&&!replay)||s.type==='end')){
+  if(guided&&s.type==='end'){
    area.className='terminal-screen';
    renderGuidedResult(area);return;
   }
@@ -480,9 +517,9 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 .sections-heading{display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;padding-top:clamp(8px,2.3cqw,28px)}
 .sections-heading .business-title{font-size:clamp(20px,3.8cqw,45px)}
 .section-summary{margin:0;color:#56718b;font-size:clamp(11px,1.35cqw,15px);font-variant-numeric:tabular-nums}
-.sections-body{flex:1;min-height:0;overflow:auto;display:flex;padding-block:clamp(8px,2cqw,24px)}
+.sections-body{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-block:clamp(8px,2cqw,24px)}
 .sections-panel .business-bottom{padding-top:clamp(5px,1.3cqw,16px);gap:6px 12px}
-.sections-list{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;list-style:none;margin:auto;padding:8px 10px 16px;width:min(100%,960px)}
+.sections-list{flex:none;display:flex;flex-wrap:wrap;justify-content:center;gap:14px;list-style:none;margin:auto;padding:8px 10px 16px;width:min(100%,960px)}
 .sections-list-four{max-width:655px}
 .section-slot{flex:1 1 250px;max-width:304px;min-width:0}
 .section-card{width:100%;height:100%;min-height:78px;display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;text-align:left;gap:12px;padding:12px;border:1px solid #e3eaf1;border-radius:11px;background:#fff;color:#21384f;box-shadow:0 2px 3px #17395808,0 8px 18px #1739580f}
@@ -533,13 +570,22 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 @media(max-width:650px){.guide-layout{grid-template-columns:1fr}.guide-demo{position:static}.guide-list{gap:12px}}
 @media(prefers-reduced-motion:reduce){.guide-active{animation:none}}
 
- .course-sections select,.course-mode{font:inherit;font-size:12px;padding:4px 6px}
-.course-sections select{width:110px;max-width:26vw;color:#21384f;background:#fff;border:1px solid #bccedf;border-radius:4px}
-.course-modes{display:flex;gap:4px}
-.course-modes[hidden],.course-sections[hidden]{display:none}
-.course-mode[aria-pressed=true]{opacity:1;background:#edf4fa;color:#17456d;border-color:#a9c4db}
-.course-mode[aria-pressed=false]{background:white;color:#17456d;border-color:#a9c4db}
-@media(max-width:450px){.course-header:has(.course-modes:not([hidden])){flex-wrap:wrap}.course-header:has(.course-modes:not([hidden])) h1{width:100%}}
+.course-section-return{font:inherit;font-size:12px;padding:4px 8px;white-space:nowrap;background:#fff;color:#17456d;border-color:#a9c4db}
+.course-section-return[hidden]{display:none}
+@media(max-width:500px){.course-header:has(.course-section-return:not([hidden])){flex-wrap:wrap}.course-header:has(.course-section-return:not([hidden])) h1{width:100%}}
+.sections-body>.section-summary{text-align:center}
+.section-mode-picker{flex:none;display:flex;gap:8px;width:min(100%,420px);margin:7px auto 0}
+.section-mode-button{display:grid;gap:3px;flex:1;min-width:0;padding:5px 10px;text-align:left;background:#fff;color:#17456d;border-color:#b9ccde}
+.section-mode-button span{font-size:11px}
+.section-mode-button[aria-pressed=true]{opacity:1;background:#edf4fa;border-color:#7fa3c5}
+.section-failure{flex:none;margin:8px auto 0;padding:8px 10px;background:#fff4ee;border:1px solid #ebc4ad;border-radius:5px;width:min(100%,580px);font-size:12px;color:#753f23}
+.section-failure p{margin:3px 0 6px}
+.section-failure-actions{display:flex;flex-wrap:wrap;gap:6px}
+.section-failure-actions button{padding:4px 9px;font-size:11px}
+.section-failure-actions .restart-button{background:#fff;color:var(--accent)}
+.guide-section-navigation{margin-top:20px;padding:10px 12px;border:1px solid #d9e6ee;border-radius:5px;background:#f6fafd;font-size:13px}
+.guide-section-navigation p{margin:5px 0 0}
+.guide-section-button{display:inline-block;margin-top:7px;border:1px solid #a9c4db;border-radius:4px}
 .course-header[hidden],.segmented-progress[hidden]{display:none}
 .business-cover{width:100%;min-height:100%;background:#fff;border:1px solid #dce5ef;border-top:4px solid var(--accent);display:flex;flex-direction:column;padding:clamp(22px,4vw,55px);text-align:left;box-shadow:0 15px 40px #153c6410}
 .business-brand{border-bottom:1px solid #dde5ed;padding-bottom:24px;min-height:75px}
@@ -591,7 +637,7 @@ button[aria-invalid=true]{outline:2px solid #bc4431}
 @media(max-width:420px){.completion-actions{gap:12px;margin-top:20px}.completion-actions>button{padding:10px 8px;font-size:12px;min-height:44px}}
 
 `;
-const markup='<header class="course-header"><img id="course-logo" hidden alt="Логотип"><h1 id="title"></h1><div id="course-sections" class="course-sections" hidden></div><div id="course-modes" class="course-modes" hidden></div><span id="errors" class="error-counter" role="status"></span></header><main><div id="course-progress" class="segmented-progress" role="group"></div><section id="task-banner" class="task-banner" aria-label="Задание"><strong class="task-label">Задание</strong><h2 id="task-title" hidden></h2><p id="task"></p><button id="more-task" hidden type="button" aria-expanded="false">Полностью</button></section><div id="work-bar" hidden><span id="step"></span></div><div id="feedback" role="status" aria-live="polite"></div><section id="screen"></section><div id="session-warning" role="status" hidden></div></main>';
+const markup='<header class="course-header"><img id="course-logo" hidden alt="Логотип"><h1 id="title"></h1><button type="button" id="course-section-return" class="course-section-return" hidden>Перейти к выбору разделов</button><span id="errors" class="error-counter" role="status"></span></header><main><div id="course-progress" class="segmented-progress" role="group"></div><section id="task-banner" class="task-banner" aria-label="Задание"><strong class="task-label">Задание</strong><h2 id="task-title" hidden></h2><p id="task"></p><button id="more-task" hidden type="button" aria-expanded="false">Полностью</button></section><div id="work-bar" hidden><span id="step"></span></div><div id="feedback" role="status" aria-live="polite"></div><section id="screen"></section><div id="session-warning" role="status" hidden></div></main>';
 
 root.ScenaPlayer={run,css,markup};
 })(typeof window!=='undefined'?window:globalThis);
