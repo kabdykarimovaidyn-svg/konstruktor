@@ -75,3 +75,37 @@ M.insert(copiedJumpProject,[withJump],copiedJumpProject.start,'s1');
 assert.ok(M.inspect(copiedJumpProject).problems.some(e=>e.text.includes('Скопированная область')));
 assert.throws(()=>M.previewCourse(copiedJumpProject,withJump.id),/Скопированная область.*следующий шаг/);
 console.log('Незаполненная цель скопированного перехода блокирует запуск отдельного шага и отмечается проверкой курса.');
+
+const chapterCourse=M.project(),courseEnd=chapterCourse.steps[0];
+M.addGuide(chapterCourse);
+const lesson=M.node('message','s1');
+M.insert(chapterCourse,[lesson],courseEnd.id,'s1');
+assert.equal(chapterCourse.steps.find(s=>s.template==='guide').next,lesson.id);
+const chapterMenu=M.addSectionMenu(chapterCourse);
+const chapterEnd=chapterCourse.steps.find(s=>s.template==='section-end');
+assert.deepEqual(M.structure(chapterCourse).map(g=>g.steps.map(s=>s.id)),[
+ chapterCourse.steps.filter(s=>s.type==='intro'||s.template==='guide').map(s=>s.id).concat(chapterMenu.id),
+ [lesson.id,chapterEnd.id],[courseEnd.id]
+]);
+assert.equal(chapterMenu.next,courseEnd.id);
+assert.equal(chapterMenu.sections[0].finish,chapterEnd.id);
+assert.equal(lesson.next,chapterEnd.id);
+assert.equal(chapterEnd.next,chapterMenu.id);
+assert.equal(M.addSectionEnd(chapterCourse,'s1').id,chapterEnd.id);
+chapterMenu.sections[0].label='Переименованный раздел';
+assert.equal(M.toCourse(chapterCourse).steps.find(s=>s.id===chapterEnd.id).sectionTitle,'Переименованный раздел');
+assert.equal(ScenaSCORM.validate(M.exportCourse(chapterCourse,'guided')),true);
+const legacy=structuredClone(chapterCourse);
+const legacyEnd=legacy.steps.find(s=>s.id===chapterEnd.id);
+legacyEnd.type='end';delete legacyEnd.template;delete legacyEnd.next;
+legacy.steps=legacy.steps.filter(s=>s.id!==courseEnd.id);
+const repaired=M.cleanImport(legacy),repairedMenu=repaired.steps.find(s=>s.template==='sections');
+assert.equal(repaired.steps.filter(s=>s.type==='end').length,1);
+assert.equal(repaired.steps.find(s=>s.id===chapterEnd.id).template,'section-end');
+assert.equal(repaired.steps.find(s=>s.id===chapterEnd.id).next,repairedMenu.id);
+assert.equal(ScenaSCORM.validate(M.exportCourse(repaired,'guided')),true);
+M.remove(chapterCourse,chapterMenu.id);
+assert.equal(chapterCourse.steps.find(s=>s.template==='guide').next,lesson.id);
+assert.equal(chapterEnd.next,courseEnd.id);
+assert.equal(ScenaSCORM.validate(M.toCourse(chapterCourse)),true);
+console.log('Структура: страницы курса, финал раздела, восстановление итогового экрана и переход без выбора разделов проверены.');

@@ -41,6 +41,18 @@ p.start='welcome';for(let i=0;i<p.steps.length;i++){const n=p.steps[i];if(n.type
  p.steps.find(s=>s.id==='username').next=menu.id;
  p.steps.find(s=>s.id==='review').next=menu.id;
  p.settings.flow='branching';
+ p.groups=menu.sections.map((card,index)=>({id:'gmail-'+(index+1),title:card.label}));
+ menu.sections.forEach((card,index)=>{
+  const group=p.groups[index];
+  const from=p.steps.findIndex(step=>step.id===card.next);
+  const to=p.steps.findIndex(step=>step.id===card.finish);
+  p.steps.slice(from,to+1).forEach(step=>step.group=group.id);
+ });
+ guide.group=menu.group=p.groups[0].id;
+ p.steps.find(step=>step.id==='welcome').group=p.groups[0].id;
+ p.steps.find(step=>step.id==='finish').group=p.groups.at(-1).id;
+ p.groups.forEach(group=>M.addSectionEnd(p,group.id));
+ p.steps=M.ordered(p);
  p.steps.forEach((s,i)=>{p.layout[s.id]={x:60,y:50+i*280};});
  return p;}
 root.ScenaSamples=root.ScenaSamples||{};root.ScenaSamples.createGmail=createGmail;

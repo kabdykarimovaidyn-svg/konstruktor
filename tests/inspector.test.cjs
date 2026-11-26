@@ -80,3 +80,17 @@ vm.runInContext('renderInspector()',context);
 assert.ok(panel.innerHTML.includes('Свойства перехода'));
 assert.ok(panel.innerHTML.includes('data-path="jumps.0.next"'));
 console.log('Выбор применённого перехода открывает его настройки.');
+
+const structureProject=ScenaModel.project();
+ScenaModel.addGuide(structureProject);
+structureProject.groups.push({id:'second',title:'Раздел «Практика»'});
+const activity=ScenaModel.node('message','second');
+ScenaModel.insert(structureProject,[activity],null,'second');
+context.p=structureProject;
+vm.runInContext(source.slice(source.indexOf('function linkOptions('),source.indexOf('function assetOptions(')),context);
+const transitionOptions=context.linkOptions(activity.id);
+assert.ok(transitionOptions.indexOf('label="Начало курса"')<transitionOptions.indexOf('label="Раздел «Практика»"'));
+assert.ok(transitionOptions.indexOf('label="Раздел «Практика»"')<transitionOptions.indexOf('label="Итог курса"'));
+assert.ok(transitionOptions.includes('value="'+activity.id+'" selected'));
+assert.doesNotMatch(context.linkOptions('',{endOnly:true}),/Начало курса|Раздел «Практика»/);
+console.log('Списки переходов группируют вступление, материалы и итог курса.');

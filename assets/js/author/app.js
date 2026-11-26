@@ -14,7 +14,13 @@ function mutate(fn){checkpoint();fn();changed();}
 function restoreHistory(back){const src=back?undo:redo,dst=back?redo:undo;if(!src.length)return;dst.push(structuredClone(p));p=src.pop();if(!p.steps.some(n=>n.id===selected))selected=p.steps[0]?.id;changed();render();}
 function select(id,full=true,keepOutlineSelection=false){if(!p.steps.some(n=>n.id===id))return;if(!keepOutlineSelection)ScenaOutline.selectOne?.(id);selected=id;selectedGroup=p.steps.find(n=>n.id===id).group;drawing=null;if(full)render();else{renderInspector();renderList();}}
 function title(id){return p.steps.find(n=>n.id===id)?.title||'Не выбран';}
-function linkOptions(value,{choiceOnly=false,videoOnly=false}={}){return '<option value="">Не выбран</option>'+p.steps.filter(n=>(!choiceOnly||n.type==='choice')&&(!videoOnly||n.type==='video')).map(n=>`<option value="${h(n.id)}" ${n.id===value?'selected':''}>${h(n.title)}</option>`).join('');}
+function linkOptions(value,{choiceOnly=false,videoOnly=false,contentOnly=false,endOnly=false,screenOnly=false,placeholder='Не выбран',exclude=''}={}){
+ return '<option value="">'+h(placeholder)+'</option>'+M.structure(p).map(group=>{
+  const steps=group.steps.filter(n=>n.id!==exclude&&(!choiceOnly||n.type==='choice')&&(!videoOnly||n.type==='video')&&(!contentOnly||!group.coursePage)&&(!endOnly||n.type==='end')&&(!screenOnly||n.background&&p.assets[n.background]));
+  if(!steps.length)return '';
+  return '<optgroup label="'+h(group.title)+'">'+steps.map(n=>'<option value="'+h(n.id)+'" '+(n.id===value?'selected':'')+'>'+h(n.title)+'</option>').join('')+'</optgroup>';
+ }).join('');
+}
 function assetOptions(value,video=false){return '<option value="">Не выбран</option>'+Object.entries(p.assets).filter(([,a])=>video?a.blob.type.startsWith('video/'):a.blob.type.startsWith('image/')).map(([path,a])=>`<option value="${h(path)}" ${path===value?'selected':''}>${h(a.name)}</option>`).join('');}
 function input(label,path,value,type='text'){return `<label>${h(label)}<input type="${type}" data-path="${h(path)}" value="${h(value??'')}" ${type==='number'?'step="0.1"':''}></label>`;}
 function textarea(label,path,value){return `<label>${h(label)}<textarea data-path="${h(path)}">${h(value||'')}</textarea></label>`;}
@@ -57,9 +63,9 @@ function renderInspector(){
  if(selectionKey&&selectionKey!==inspectorSelectedField)inspectorSections.set(n.id+':field',true);
  inspectorSelectedField=selectionKey;
  let out='<p class="inspector-explanation">'+h(M.descriptions[n.type])+'</p>';
- const info=input('Название шага · видно автору','title',n.title)+
-  '<label>Раздел курса<select data-path="group" '+(n.type==='end'&&p.settings.flow==='sequence'?'disabled':'')+'>'+
-  p.groups.map(g=>'<option value="'+h(g.id)+'" '+(n.group===g.id?'selected':'')+'>'+h(g.title)+'</option>').join('')+'</select></label>';
+ const info=input('Название шага · видно автору','title',n.title)+(M.coursePosition(n)?'<p class="small">Страница курса вне разделов.</p>':
+  '<label>Раздел курса<select data-path="group">'+
+  p.groups.map(g=>'<option value="'+h(g.id)+'" '+(n.group===g.id?'selected':'')+'>'+h(g.title)+'</option>').join('')+'</select></label>');
  out+=section('step','О шаге',info);
  out+=section('task','Задание сотруднику',
   input('Заголовок задания','taskTitle',n.taskTitle)+textarea('Текст задания','instruction',n.instruction));
@@ -150,8 +156,8 @@ function renderInspector(){
    const base='sections.'+i+'.';
    cards+=section('section-'+card.id,'Раздел '+(i+1),
     input('Название раздела',base+'label',card.label)+
-    target('Первый шаг',base+'next',card.next)+
-    target('Последний шаг',base+'finish',card.finish)+
+    target('Первый шаг',base+'next',card.next,{contentOnly:true})+
+    target('Завершение раздела',base+'finish',card.finish,{contentOnly:true})+
     '<label>Иконка<select data-path="'+base+'icon">'+Object.entries({folder:'Папка',browser:'Браузер',mail:'Почта',shield:'Защита'}).map(([key,label])=>'<option value="'+key+'" '+(key===(card.icon||'folder')?'selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
     '<button data-move-section="'+i+'" data-direction="-1" '+(i===0?'disabled':'')+'>Выше</button> '+
     '<button data-move-section="'+i+'" data-direction="1" '+(i===n.sections.length-1?'disabled':'')+'>Ниже</button> '+
@@ -159,9 +165,11 @@ function renderInspector(){
   });
   out+=section('sections','Разделы и переходы',cards+
    '<button data-add-section class="full" '+(n.sections.length>=100?'disabled':'')+'>Добавить раздел</button>'+
-   '<p class="small">На последнем шаге каждого раздела настройте переход обратно к этой странице.</p>',true);
+   target('Итог курса после всех разделов','next',n.next,{endOnly:true})+
+   '<p class="small">Добавьте материал «Завершение раздела» внутри нужного раздела. Он возвращает сюда.</p>',true);
  }
- if(n.type==='message'&&n.template!=='sections'){
+ if(n.template==='section-end')content='<p class="small">Раздел: '+h(M.sectionTitle(p,n))+'</p>'+textarea('Текст завершения раздела','body',n.body);
+ if(n.type==='message'&&!['sections','section-end'].includes(n.template)){
   if(n.template==='guide')content+='<p class="small">Каждая строка — «Название|Пояснение» для одного пункта инструкции.</p>';
   content+=textarea('Текст страницы','body',n.body)+input('Подпись кнопки','button',n.button);
  }
@@ -216,7 +224,7 @@ function renderInspector(){
  if(n.type==='video')next=target('После окончания видео','next',n.next);
  if(n.type==='intro')next=target('После кнопки «Начать»','next',n.next);
  if(n.type==='slide')next=target('После слайда','next',n.next);
- if(n.type==='message')next=target(n.template==='sections'?'Итог после всех разделов':'Открыть следующий шаг','next',n.next);
+ if(n.type==='message'&&n.template!=='sections')next=target(n.template==='section-end'?'После завершения раздела':'Открыть следующий шаг','next',n.next);
  if(n.type==='return')next=target('Вернуться к вопросу','next',n.next,{choiceOnly:true})+
   checkbox('Засчитать ветку как одну ошибку','penalty',n.penalty!==false);
  if(next)out+=section('next','Переход к следующему шагу',next);
@@ -265,8 +273,9 @@ function renderEditor(){const n=node();$('selected-type').textContent=n?M.types[
  else if(n.type==='return')content+=`<div class="placeholder"><h2>↩ Возврат к решению</h2><p>Цель: <strong>${h(title(n.next))}</strong></p><p>Вводное видео не повторяется. Ошибка учитывается после просмотра последствий.</p></div>`;
  else if(n.type==='intro')content+=`<div class="author-business-cover"><div class="author-business-brand">${p.theme?.logo?`<img src="${url(p.theme.logo)}" alt="Логотип">`:p.theme?.coverLogoHidden?'':`<img src="${M.brandLogo}" alt="Корпоративный университет Казахтелеком">`}</div><div class="author-business-center"><small>КОРПОРАТИВНОЕ ОБУЧЕНИЕ</small><h2>${h(p.title)}</h2><p>${h(n.body||'')}</p><span>Начать</span></div><footer>ПРОФЕССИОНАЛЬНОЕ РАЗВИТИЕ · Корпоративный университет</footer></div>`;
  else if(['end'].includes(n.type))content+=`<div class="author-completion" style="font-family:${h(p.theme?.font||'Arial')};border-top-color:${/^#[a-f0-9]{6}$/i.test(p.theme?.color||'')?p.theme.color:'#005ca9'}"><div class="author-completion-icon">${n.type==='intro'?'▶':'✓'}</div>${p.theme?.logo?`<img class="author-logo" src="${url(p.theme.logo)}" alt="Логотип">`:``}<small>${n.type==='intro'?'ДОБРО ПОЖАЛОВАТЬ':'ОБУЧЕНИЕ ЗАВЕРШЕНО'}</small><h2>${h(p.title)}</h2><p>${h(n.body||'Вы прошли все необходимые задания.')}</p><span class="author-finish-button">${n.type==='intro'?'Начать':'Завершить'}</span><p class="small">${n.type==='intro'?'Кнопка открывает первый материал курса.':'Кнопка сохраняет результат и завершает SCORM-сессию.'}</p></div>`;
- else content+=`<div class="settings-card"><h2>${h(n.title)}</h2><p style="white-space:pre-wrap">${h(n.body||'Добавьте текст справа.')}</p>${n.type==='end'?'<span class="tag">Завершает курс и передаёт результат в LMS</span>':''}</div>`;
- if(n.template==='sections')content+='<div class="quick-options">'+n.sections.map((card,i)=>'<div class="quick-option"><strong>'+h(card.label)+'</strong><small>'+h(title(card.next))+' → '+h(title(card.finish))+'</small></div>').join('')+'</div>';
+ else if(n.template!=='section-end')content+=`<div class="settings-card"><h2>${h(n.title)}</h2><p style="white-space:pre-wrap">${h(n.body||'Добавьте текст справа.')}</p>${n.type==='end'?'<span class="tag">Завершает курс и передаёт результат в LMS</span>':''}</div>`;
+ if(n.template==='section-end')content+=`<div class="author-completion"><div class="author-completion-icon">✓</div><h2>${h(p.title)}</h2><h3>${h(M.sectionTitle(p,n))}</h3><p>${h(n.body||'Раздел завершён.')}</p><span class="author-finish-button">${p.steps.find(s=>s.id===n.next)?.template==='sections'?'К выбору разделов':'Продолжить'}</span></div>`;
+ else if(n.template==='sections')content+='<div class="quick-options">'+n.sections.map((card,i)=>'<div class="quick-option"><strong>'+h(card.label)+'</strong><small>'+h(title(card.next))+' → '+h(title(card.finish))+'</small></div>').join('')+'</div>';
  else if(n.options)content+='<div class="quick-options">'+n.options.map((o,i)=>`<div class="quick-option"><strong>${i+1}. ${h(o.label)}</strong><small>${o.wrong?'Ошибка → повтор':h(title(o.next))}</small></div>`).join('')+'</div>';else if(n.type!=='end')content+=`<div class="quick-option" style="margin-top:16px"><strong>Далее</strong><small>${h(title(n.next))}</small></div>`;
  $('editor-content').innerHTML=content;if($('screen-wrap')){bindDrawing();ScenaAreas.bind();const video=$('screen-wrap').querySelector('video');if(video)video.onloadedmetadata=()=>{video.currentTime=Math.max(0,video.duration-.05);};}}
 function setDrawing(tool){if(tool.kind==='new-field'&&(node()?.fields?.length||0)>=30){notice('На одном экране доступно до 30 полей.');return;}if(!node()?.background&&!node()?.video){notice('Сначала загрузите скриншот или выберите видео.');return;}document.body.classList.remove('inspector-open');setTab('editor');drawing=tool;renderEditor();$('screen-wrap')?.scrollIntoView({block:'nearest',behavior:'smooth'});}
@@ -290,9 +299,7 @@ function loadCropImage(path){
 }
 function openCrop(source,rect){
  const dialog=$('crop-dialog'),select=$('crop-background'),project=p,sourcePath=source.background;
- select.innerHTML='<option value="">Только вырезанный фрагмент</option>'+p.steps
-  .filter(step=>step.id!==source.id&&step.background&&p.assets[step.background])
-  .map(step=>'<option value="'+h(step.id)+'">'+h(step.title)+'</option>').join('');
+ select.innerHTML=linkOptions('',{contentOnly:true,exclude:source.id,placeholder:'Только вырезанный фрагмент',screenOnly:true});
  $('crop-status').textContent='';
  const save=$('crop-save');
  save.disabled=false;
@@ -377,7 +384,7 @@ function preview(fromCurrent=false,mode){try{
  }catch(error){notice('Проверьте настройки: '+error.message);}}
 
 async function build(mode='learn'){$('build-scorm').disabled=true;$('build-exam').disabled=true;$('export-status').textContent='Собирается ZIP…';await new Promise(r=>setTimeout(r,30));try{const report=check();if(report.problems.length)throw Error('Курс содержит ошибки.');const referenced=new Set([...p.steps.flatMap(n=>[n.src,n.background,...(n.decorations||[]).filter(v=>v.type==='image').map(v=>v.src)]),p.theme?.logo].filter(Boolean));const assets=Object.fromEntries([...referenced].map(path=>[path,p.assets[path].blob]));const blob=await ScenaSCORM.build(M.exportCourse(p,mode),assets);download(blob,p.id+'-'+mode+'-scorm12.zip');$('export-status').textContent='Готово: '+(blob.size/1048576).toFixed(2)+' МБ. Загрузите ZIP в тестовый курс Mirapolis.';}catch(e){$('export-status').textContent='Не удалось собрать пакет: '+e.message;}finally{$('build-scorm').disabled=false;$('build-exam').disabled=false;}}
-function addNode(type){if(type==='end'&&p.settings.flow==='sequence'&&p.steps.some(n=>n.type==='end')){select(p.steps.find(n=>n.type==='end').id);notice('Итоговый экран уже есть в конце курса.');return;}const n=M.node(type,selectedGroup);mutate(()=>{if(['choice','return'].includes(type))p.settings.flow='branching';M.insert(p,[n],insertionAnchor(),selectedGroup);if(p.settings.flow==='sequence')ScenaMap.arrange();});selected=n.id;render();if(tab==='map')ScenaMap.focus(n.id);}
+function addNode(type){if(type==='end'&&p.steps.some(n=>n.type==='end')){select(p.steps.find(n=>n.type==='end').id);notice('Итоговый экран уже есть в конце курса.');return;}const n=M.node(type,selectedGroup);mutate(()=>{if(['choice','return'].includes(type))p.settings.flow='branching';M.insert(p,[n],insertionAnchor(),selectedGroup);if(p.settings.flow==='sequence')ScenaMap.arrange();});selected=n.id;render();if(tab==='map')ScenaMap.focus(n.id);}
 
 function addTemplate(kind){if(kind==='browser'){
  const {node:n,svg}=M.browserTemplate(selectedGroup),path='media/'+M.uid('browser')+'.svg';n.background=path;
@@ -386,16 +393,15 @@ function addTemplate(kind){if(kind==='browser'){
  select(n.id);ScenaAreas.pickField(n.fields[0].id);inspectorSections.set(n.id+':field',true);renderInspector();
  notice('Шаблон браузера добавлен. Справа задайте правильный адрес сайта в свойствах поля.');return;
  }if(kind==='sections'){
-  const anchor=insertionAnchor(),previous=p.steps.find(s=>s.id===anchor);
-  const menu=M.sectionMenu(selectedGroup,[M.sectionCard('Раздел 1',previous?.next||'')]);
-  mutate(()=>{
-   p.settings.flow='branching';
-   M.insert(p,[menu],anchor,selectedGroup);
-   menu.next=p.steps.find(s=>s.type==='end')?.id||'';
-   if(previous&&previous.type!=='end'&&!previous.options)previous.next=menu.id;
-  });
+  let menu;mutate(()=>{menu=M.addSectionMenu(p);});
   select(menu.id);return;
- }if(kind==='guide'){const n=M.guideNode(selectedGroup);mutate(()=>M.insert(p,[n],insertionAnchor(),selectedGroup));select(n.id);return;}if(kind==='intro'){if(p.steps.some(n=>n.type==='intro')){select(p.steps.find(n=>n.type==='intro').id);return;}mutate(()=>M.addIntro(p));select(p.start);return;}const n=M.node('message',selectedGroup);n.template=kind;n.title={instruction:'Инструкция',cards:'Карточки',dialog:'Диалог'}[kind]||'Материал';n.body={instruction:'Шаг 1. Подготовьте необходимые данные.\nШаг 2. Выполните действие.\nШаг 3. Проверьте результат.',cards:'Первый ключевой пункт\nВторой ключевой пункт\nТретий ключевой пункт',dialog:'Клиент: Добрый день! Мне нужна помощь.\nСотрудник: Здравствуйте! Уточните, пожалуйста, детали.'}[kind];mutate(()=>M.insert(p,[n],insertionAnchor(),selectedGroup));selected=n.id;render();}
+ }if(kind==='section-end'){
+  let finish;mutate(()=>{finish=M.addSectionEnd(p,selectedGroup,insertionAnchor());});
+  select(finish.id);return;
+ }if(kind==='guide'){
+  mutate(()=>M.addGuide(p));
+  select(p.steps.find(n=>n.template==='guide').id);return;
+ }if(kind==='intro'){if(p.steps.some(n=>n.type==='intro')){select(p.steps.find(n=>n.type==='intro').id);return;}mutate(()=>M.addIntro(p));select(p.start);return;}const n=M.node('message',selectedGroup);n.template=kind;n.title={instruction:'Инструкция',cards:'Карточки',dialog:'Диалог'}[kind]||'Материал';n.body={instruction:'Шаг 1. Подготовьте необходимые данные.\nШаг 2. Выполните действие.\nШаг 3. Проверьте результат.',cards:'Первый ключевой пункт\nВторой ключевой пункт\nТретий ключевой пункт',dialog:'Клиент: Добрый день! Мне нужна помощь.\nСотрудник: Здравствуйте! Уточните, пожалуйста, детали.'}[kind];mutate(()=>M.insert(p,[n],insertionAnchor(),selectedGroup));selected=n.id;render();}
 function setPath(object,path,value){const parts=path.split('.');let ref=object;for(const part of parts.slice(0,-1)){if(!Object.hasOwn(ref,part))throw Error('Поле не найдено.');ref=ref[part];}ref[parts.at(-1)]=value;}
 let textEdit=null;
 $('inspector-content').addEventListener('input',e=>{const path=e.target.dataset.path;if(!path||!(e.target.tagName==='TEXTAREA'||e.target.type==='text'))return;const n=node();if(!n)return;const key=n.id+':'+path;if(textEdit!==key){checkpoint();textEdit=key;}setPath(n,path,e.target.value);
@@ -516,7 +522,7 @@ async function removeSteps(ids){
  if(removed.has(selected))selected=next?.id||p.steps[0]?.id;selectedGroup=node()?.group||p.groups[0].id;
  ScenaOutline.selectOne(selected);render();$('node-list').querySelector('[data-select="'+selected+'"]')?.focus({preventScroll:true});notice('Удалено: '+targets.length+'. Вернуть все шаги — «Отменить».');
 }
-function duplicateStep(id){const n=p.steps.find(n=>n.id===id);if(!n)return;const copy=structuredClone(n);copy.id=M.uid('step');copy.title+=' — копия';copy.options?.forEach(o=>o.id=M.uid('opt'));copy.jumps?.forEach(j=>j.id=M.uid('jump'));copy.decorations?.forEach(v=>v.id=M.uid('visual'));const fieldIds=new Map((copy.fields||[]).map(f=>[f.id,M.uid('field')]));copy.fields?.forEach(f=>{f.id=fieldIds.get(f.id);if(f.match?.stepId===n.id)f.match={stepId:copy.id,fieldId:fieldIds.get(f.match.fieldId)||f.match.fieldId};});mutate(()=>M.insert(p,[copy],id,n.group));selected=copy.id;selectedGroup=copy.group;render();}
+function duplicateStep(id){const n=p.steps.find(n=>n.id===id);if(!n)return;if(M.coursePosition(n)||n.template==='section-end'){notice('Эта страница добавляется через «Добавить материал».');return;}const copy=structuredClone(n);copy.id=M.uid('step');copy.title+=' — копия';copy.options?.forEach(o=>o.id=M.uid('opt'));copy.jumps?.forEach(j=>j.id=M.uid('jump'));copy.decorations?.forEach(v=>v.id=M.uid('visual'));const fieldIds=new Map((copy.fields||[]).map(f=>[f.id,M.uid('field')]));copy.fields?.forEach(f=>{f.id=fieldIds.get(f.id);if(f.match?.stepId===n.id)f.match={stepId:copy.id,fieldId:fieldIds.get(f.match.fieldId)||f.match.fieldId};});mutate(()=>M.insert(p,[copy],id,n.group));selected=copy.id;selectedGroup=copy.group;render();}
 let renamingStep=null;
 function renameStep(id){const n=p.steps.find(s=>s.id===id);if(!n)return;renamingStep=id;$('step-rename-title').value=n.title;$('step-rename-dialog').showModal();$('step-rename-title').focus();$('step-rename-title').select();}
 $('step-rename-cancel').onclick=()=>$('step-rename-dialog').close();$('step-rename-form').onsubmit=e=>{e.preventDefault();const value=$('step-rename-title').value.trim(),n=p.steps.find(s=>s.id===renamingStep);if(!value||!n)return;mutate(()=>n.title=value);$('step-rename-dialog').close();render();};
