@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 const M=ScenaModel,$=id=>document.getElementById(id),h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let p=M.project(),selected=p.start,tab='editor',undo=[],redo=[],revision=0,saveTimer,saveChain=Promise.resolve(),unsaved=false,urls=new Map(),drawing=null,uploadTarget=null,toastTimer,busy=false,selectedGroup=p.groups[0].id,hasProject=false,addAnchor=null,pendingBatch=[],batchURLs=new Map(),confirmResolver=null,previewToken=null,previewScope=false;
+let p=M.project(),selected=p.start,tab='editor',undo=[],redo=[],revision=0,saveTimer,saveChain=Promise.resolve(),unsaved=false,urls=new Map(),drawing=null,uploadTarget=null,toastTimer,busy=false,selectedGroup=p.groups[0].id,hasProject=false,addAnchor=null,pendingBatch=[],batchURLs=new Map(),confirmResolver=null,previewToken=null;
 const icon={intro:'▶',slide:'▧',video:'▷',choice:'⑂',form:'⌨',click:'▧',message:'≡',return:'↩',end:'✓'};
 const node=()=>p.steps.find(n=>n.id===selected);
 function notice(text){$('toast').textContent=text;$('toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').style.display='none',4500);}
@@ -370,16 +370,20 @@ function addBatch(){try{validateFiles(pendingBatch);const anchor=uploadTarget?.i
 function download(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);}
 function issuesHTML(report){return (report.problems.length?report.problems.map(e=>`<button class="issue" data-issue-node="${h(e.id||'')}">${h(e.text)}</button>`).join(''):'<div class="issue ok">Курс готов к сборке.</div>')+(report.warnings.length?'<p class="small">Предупреждения ниже не мешают выгрузке. Нажмите на сообщение, чтобы открыть шаг.</p>':'')+report.warnings.map(e=>`<button class="issue warning" data-issue-node="${h(e.id)}">${h(e.text)}</button>`).join('');}
 function check(){const report=M.inspect(p);if(!report.problems.length){try{const course=M.toCourse(p);if(course.steps.some(s=>s.template==='sections'))course.mode='guided';ScenaSCORM.validate(course);}catch(e){report.problems.push({text:e.message});}}return report;}
-function preview(fromCurrent=false,mode){try{
- const course=fromCurrent==='from'?M.previewFrom(p,selected):fromCurrent?M.previewCourse(p,selected):M.toCourse(p);
- if(!fromCurrent){const report=check();if(report.problems.length){setTab('settings');$('validation-results').innerHTML=issuesHTML(report);notice('Исправьте ошибки курса перед полным просмотром. Отдельный шаг можно проверить кнопкой «Посмотреть этот шаг».');return;}}
- const guided=!fromCurrent&&course.steps.some(s=>s.template==='sections');
- course.mode=guided?'guided':mode||p.settings.mode;
- $('preview-mode').closest('label').style.display=guided?'none':'';$('preview-mode-note').hidden=guided;
- previewScope=fromCurrent;previewToken=M.uid('preview');course.previewToken=previewToken;
+function preview(scope=false){try{
+ const menu=p.steps.find(step=>step.template==='sections');
+ const single=scope===true,from=scope==='from',sections=scope==='sections'&&!!menu;
+ const course=from?M.previewFrom(p,selected):single?M.previewCourse(p,selected):M.toCourse(p);
+ if(!from&&!single){const report=check();if(report.problems.length){setTab('settings');$('validation-results').innerHTML=issuesHTML(report);notice('Исправьте ошибки курса перед полным просмотром. Отдельный шаг можно проверить кнопкой «Посмотреть этот шаг».');return;}}
+ if(sections)course.start=menu.id;
+ const guided=!single&&course.steps.some(s=>s.template==='sections');
+ course.mode=guided?'guided':p.settings.mode;
+ previewToken=M.uid('preview');course.previewToken=previewToken;
  const resources=Object.fromEntries(Object.keys(p.assets).map(path=>[path,url(path)]));
- $('preview-frame').srcdoc=ScenaSCORM.preview(course,resources);$('preview-mode').value=course.mode;
- document.querySelector('#preview-dialog .dialog-bar strong').textContent=(fromCurrent==='from'?'Курс с выбранного шага':fromCurrent?'Проверка выбранного шага':'Предпросмотр курса')+(course.previewDependencies?' · сначала исходные поля':'')+(fromCurrent==='from'&&course.start===p.start&&selected!==p.start&&p.steps.some(n=>n.template==='sections')?' · разделы по порядку':'');
+ const content=ScenaSCORM.preview(course,resources);
+ $('preview-frame').srcdoc=content;
+ $('preview-sections').hidden=!menu||guided||course.mode!=='learn';
+ document.querySelector('#preview-dialog .dialog-bar strong').textContent=(sections?'Выбор раздела':from?'Курс с выбранного шага':single?'Проверка выбранного шага':'Предпросмотр курса')+(course.previewDependencies?' · сначала исходные поля':'')+(from&&course.start===p.start&&selected!==p.start&&menu?' · разделы по порядку':'');
  if(!$('preview-dialog').open)$('preview-dialog').showModal();
  }catch(error){notice('Проверьте настройки: '+error.message);}}
 
@@ -492,7 +496,7 @@ $('batch-list').onclick=e=>{const b=e.target.closest('button');if(!b)return;cons
 $('configure-flow').onclick=()=>setTab('settings');$('course-flow').onchange=async()=>{const next=$('course-flow').value;if(next==='sequence'&&p.steps.some(n=>n.template==='sections')){notice('Страница выбора разделов использует настроенные переходы.');renderSettings();return;}if(next==='sequence'&&p.steps.filter(n=>n.type==='end').length>1){notice('Для прохождения по порядку оставьте один итоговый экран.');renderSettings();return;}if(next==='sequence'&&p.steps.some(n=>n.type==='return')){notice('Удалите шаги возврата перед переходом к прохождению по порядку.');renderSettings();return;}if(next==='sequence'&&p.settings.flow!=='sequence'&&!await confirmAction('Изменить порядок прохождения?','Все правильные ответы и шаги будут вести дальше по списку слева. Настроенные ветки заменятся последовательностью. Действие можно отменить.','Идти по порядку')){renderSettings();return;}mutate(()=>{p.settings.flow=next;M.sequence(p);if(next==='sequence')ScenaMap.arrange();});render();};
 $('media-grid').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.useAsset){const n=node();if(!n){notice('Сначала добавьте шаг.');return;}const path=b.dataset.useAsset,a=p.assets[path];if(a.blob.type.startsWith('video/')&&n.type!=='video'){notice('Выберите шаг типа «Видео» в левой панели.');return;}if(a.blob.type.startsWith('image/')&&!['form','click','choice','message'].includes(n.type)){notice('Выберите шаг тренажёра или выбора.');return;}mutate(()=>{n[a.blob.type.startsWith('video/')?'src':'background']=path;if(a.blob.type.startsWith('image/')&&n.type==='choice')n.video='';});setTab('editor');}if(b.dataset.deleteAsset){mutate(()=>delete p.assets[b.dataset.deleteAsset]);renderMedia();}};
 $('start-step').onchange=()=>{mutate(()=>p.start=$('start-step').value);render();};$('course-mode').onchange=()=>mutate(()=>p.settings.mode=$('course-mode').value);$('course-penalty').onchange=()=>{mutate(()=>p.settings.penalty=Math.max(0,Math.min(100,Number($('course-penalty').value)||0)));renderSettings();};$('validate-course').onclick=()=>{$('validation-results').innerHTML=issuesHTML(check());};
-$('preview-from').onclick=()=>preview('from');$('preview-mode').onchange=()=>preview(previewScope,$('preview-mode').value);$('preview-course').onclick=()=>preview();$('preview-node').onclick=()=>preview(true);$('close-preview').onclick=()=>{$('preview-dialog').close();$('preview-frame').srcdoc='';};$('preview-dialog').addEventListener('close',()=>{$('preview-frame').srcdoc='';previewToken=null;});window.addEventListener('message',e=>{if(e.source===$('preview-frame').contentWindow&&e.data?.type==='scena-preview-finished'&&previewToken&&e.data.token===previewToken)$('preview-dialog').close();});
+$('preview-from').onclick=()=>preview('from');$('preview-sections').onclick=()=>preview('sections');$('preview-course').onclick=()=>preview();$('preview-node').onclick=()=>preview(true);$('close-preview').onclick=()=>{$('preview-dialog').close();$('preview-frame').srcdoc='';};$('preview-dialog').addEventListener('close',()=>{$('preview-frame').srcdoc='';previewToken=null;});window.addEventListener('message',e=>{if(e.source===$('preview-frame').contentWindow&&e.data?.type==='scena-preview-finished'&&previewToken&&e.data.token===previewToken)$('preview-dialog').close();});
 $('export-course').onclick=()=>{const report=check(),guided=p.steps.some(s=>s.template==='sections');
  $('build-scorm').textContent=guided?'Скачать обучение и экзамен':'Скачать обучение';
  $('build-exam').hidden=guided;

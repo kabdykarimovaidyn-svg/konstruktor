@@ -94,3 +94,34 @@ assert.ok(transitionOptions.indexOf('label="Раздел «Практика»"')
 assert.ok(transitionOptions.includes('value="'+activity.id+'" selected'));
 assert.doesNotMatch(context.linkOptions('',{endOnly:true}),/Начало курса|Раздел «Практика»/);
 console.log('Списки переходов группируют вступление, материалы и итог курса.');
+
+const previewProject=ScenaModel.project();
+ScenaModel.addGuide(previewProject);
+const previewStep=ScenaModel.node('message','s1');
+ScenaModel.insert(previewProject,[previewStep],previewProject.steps.find(s=>s.type==='end').id,'s1');
+const previewMenu=ScenaModel.addSectionMenu(previewProject);
+const elements={};
+const previewContext={
+ p:previewProject,selected:previewStep.id,M:ScenaModel,
+ check:()=>({problems:[]}),
+ notice(message){throw Error(message);},
+ $:id=>elements[id]||=( {showModal(){this.open=true;}} ),
+ document:{querySelector:()=>({})},
+ ScenaSCORM:{preview(course){return JSON.stringify(course);}}
+};
+vm.createContext(previewContext);
+vm.runInContext(source.slice(source.indexOf('function preview('),source.indexOf('async function build(')),previewContext);
+for(const scope of [false,'from']){
+ previewContext.preview(scope);
+ const course=JSON.parse(elements['preview-frame'].srcdoc);
+ assert.equal(course.mode,'guided');
+ assert.equal(elements['preview-sections'].hidden,true);
+}
+previewContext.preview(true);
+assert.equal(JSON.parse(elements['preview-frame'].srcdoc).previewScope,'step');
+assert.equal(elements['preview-sections'].hidden,false);
+previewContext.preview('sections');
+assert.equal(JSON.parse(elements['preview-frame'].srcdoc).start,previewMenu.id);
+assert.equal(elements['preview-sections'].hidden,true);
+assert.doesNotMatch(fs.readFileSync(require.resolve('../index.html'),'utf8'),/id="preview-mode"/);
+console.log('Предпросмотр с выбранного шага использует меню режимов плеера, отдельный шаг имеет выход к разделам.');
