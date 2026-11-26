@@ -1,7 +1,38 @@
 /* Same player runs in author preview and in the exported SCORM package. */
 (function(root){
 'use strict';
-function run(course,runtimeFactory,visualMarkup){
+const sectionIcons=Object.fromEntries(Object.entries({
+ folder:['Папка','<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'],
+ browser:['Браузер','<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>'],
+ mail:['Почта','<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/>'],
+ shield:['Защита','<path d="m12 3 8 3v6c0 4-3 7-8 9-5-2-8-5-8-9V6z"/><path d="m9 12 2 2 4-4"/>'],
+ book:['Руководство','<path d="M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1v14"/>'],
+ clipboard:['Чек-лист','<rect x="5" y="5" width="14" height="16" rx="2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-5"/>'],
+ document:['Документ','<path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6m-6 4h6"/>'],
+ chart:['Отчёт и аналитика','<path d="M4 4v16h16M8 16v-5m4 5V7m4 9v-7m4 7V5"/>'],
+ table:['Таблица','<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 14h18M10 9v11"/>'],
+ monitor:['Рабочий экран','<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4M8 21h8"/>'],
+ keyboard:['Клавиатура','<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h1m4 0h1m4 0h1M8 14h8"/>'],
+ phone:['Телефон','<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>'],
+ video:['Видео','<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/>'],
+ person:['Профиль','<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>'],
+ team:['Команда','<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m2-15a3 3 0 0 1 0 6m4 9v-2a5 5 0 0 0-3-5"/>'],
+ chat:['Диалог','<path d="M4 4h16v12H9l-5 4zM8 9h8m-8 3h5"/>'],
+ search:['Поиск','<circle cx="10" cy="10" r="5"/><path d="m14 14 6 6"/>'],
+ calendar:['Календарь','<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-14 5h3m4 0h3"/>'],
+ clock:['Время','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
+ lock:['Доступ и пароль','<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/>'],
+ settings:['Настройки','<path d="M4 7h16M4 12h16M4 17h16"/><circle cx="8" cy="7" r="2" fill="white"/><circle cx="15" cy="12" r="2" fill="white"/><circle cx="10" cy="17" r="2" fill="white"/>'],
+ workflow:['Процесс','<rect x="8" y="3" width="8" height="5" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/><rect x="14" y="16" width="7" height="5" rx="1"/><path d="M12 8v4m-5 4v-4h10v4"/>'],
+ target:['Цель','<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'],
+ award:['Результат','<circle cx="12" cy="9" r="6"/><path d="m8 14-2 7 6-3 6 3-2-7m-6-5 1 1 3-3"/>'],
+ help:['Справка','<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-1 .5-1 1.2-1 2.2m0 3h.01"/>'],
+ globe:['Сайт и интернет','<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>'],
+ tools:['Инструменты','<path d="M14 5a5 5 0 0 0-7 6l-4 5a2 2 0 0 0 3 3l5-4a5 5 0 0 0 6-7l-3 3-3-3z"/>'],
+ briefcase:['Работа','<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V4h8v3M3 12c6 3 12 3 18 0m-9 1v3"/>'],
+}).map(([id,[label,svg]])=>[id,{label,markup:'<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+svg+'</svg>'}]));
+
+function run(course,runtimeFactory,visualMarkup,icons=window.ScenaPlayer?.sectionIcons){
  if(!visualMarkup&&window.ScenaVisuals)visualMarkup=window.ScenaVisuals.markup;
  const guided=course.mode==='guided';
  let exam=course.mode==='test',learning=course.mode==='learn'||guided;
@@ -369,12 +400,6 @@ function run(course,runtimeFactory,visualMarkup){
   if(failed)renderFailedSection(body,failed);
   const list=el('ol',undefined,body,'sections-list');
   if(menu.sections.length===4)list.classList.add('sections-list-four');
-  const icons={
-   browser:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>',
-   mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/>',
-   shield:'<path d="m12 3 8 3v6c0 4-3 7-8 9-5-2-8-5-8-9V6z"/><path d="m9 12 2 2 4-4"/>',
-   folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
-  };
   for(const [index,card] of menu.sections.entries()){
    const done=!sectionPreview&&complete(card),needsRetry=failed?.card===card;
    const open=sectionPreview||card===active&&!failed;
@@ -383,7 +408,7 @@ function run(course,runtimeFactory,visualMarkup){
    const item=open?button(undefined,()=>selectSection(menu,card),slot,style):el('div',undefined,slot,style);
    const icon=el('span',undefined,item,'section-icon');
    icon.setAttribute('aria-hidden','true');
-   icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(Object.hasOwn(icons,card.icon)?icons[card.icon]:icons.folder)+'</svg>';
+   icon.innerHTML=icons[Object.hasOwn(icons,card.icon)?card.icon:'folder'].markup;
    const details=el('span',undefined,item,'section-details');
    const label=(index+1)+'. '+card.label;
    el('span',label,details,'section-label');
@@ -526,7 +551,9 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 .section-open{border-color:#aec8de;box-shadow:0 2px 4px #1739580a,0 9px 20px #1739581a}
 .section-open:hover{border-color:#8cacc8;background:#f6faff;filter:none}
 .section-done{grid-template-columns:36px minmax(0,1fr) 30px;border-color:#c8ded1}
-.section-locked{background:#fbfcfd;box-shadow:0 2px 6px #17395809}
+.section-locked{background:#f2f4f6;border-color:#d4dae0;box-shadow:none}
+.section-locked .section-icon{background:#e7ebef;color:#697581}
+.section-locked .section-label{color:#4e5b68}
 .section-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:8px;background:#f0f4f8;color:#587087}
 .section-open .section-icon{background:#e9f3fd;color:#005398}
 .section-done .section-icon{background:#eaf5ee;color:#236346}
@@ -639,5 +666,5 @@ button[aria-invalid=true]{outline:2px solid #bc4431}
 `;
 const markup='<header class="course-header"><img id="course-logo" hidden alt="Логотип"><h1 id="title"></h1><button type="button" id="course-section-return" class="course-section-return" hidden>Перейти к выбору разделов</button><span id="errors" class="error-counter" role="status"></span></header><main><div id="course-progress" class="segmented-progress" role="group"></div><section id="task-banner" class="task-banner" aria-label="Задание"><strong class="task-label">Задание</strong><h2 id="task-title" hidden></h2><p id="task"></p><button id="more-task" hidden type="button" aria-expanded="false">Полностью</button></section><div id="work-bar" hidden><span id="step"></span></div><div id="feedback" role="status" aria-live="polite"></div><section id="screen"></section><div id="session-warning" role="status" hidden></div></main>';
 
-root.ScenaPlayer={run,css,markup};
+root.ScenaPlayer={run,css,markup,sectionIcons};
 })(typeof window!=='undefined'?window:globalThis);

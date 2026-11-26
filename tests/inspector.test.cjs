@@ -24,10 +24,15 @@ const context = {
 };
 context.window=context;
 vm.createContext(context);
+vm.runInContext(fs.readFileSync(require.resolve('../modules/scorm/player.js'),'utf8'),context);
 vm.runInContext(fs.readFileSync(require.resolve('../assets/js/author/field-ui.js'),'utf8'),context);
 const helpers = source.slice(source.indexOf('function input('),source.indexOf('function renderList('));
 const inspector = source.slice(source.indexOf('const inspectorSections='),source.indexOf('function renderEditor('));
 vm.runInContext(helpers+inspector,context);
+const iconPicker=context.sectionIconPicker({icon:'chart'},0);
+assert.equal([...iconPicker.matchAll(/data-section-icon=/g)].length,28);
+assert.match(iconPicker,/data-section-icon="chart"[^>]*aria-pressed="true"/);
+assert.match(context.sectionIconPicker({icon:'unknown'},0),/data-section-icon="folder"[^>]*aria-pressed="true"/);
 for(const type of ['form','click','choice','video','intro','message','slide','return','end']){
  selected=type==='form'?fieldStep:ScenaModel.node(type,'s1');
  vm.runInContext('renderInspector()',context);

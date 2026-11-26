@@ -200,7 +200,7 @@ console.log('Отложенные штрафы в обучении отключ�
 
 const sectionCourse={id:'sections',title:'Разделы',coverLogo:coverLogo.src,start:'menu',steps:[
  {id:'menu',type:'message',template:'sections',next:'end',sections:[
-  {label:'Первый',next:'first',finish:'first'},
+  {label:'Первый',next:'first',finish:'first',icon:'chart'},
   {label:'Второй',next:'second',finish:'second'},
   {label:'Третий',next:'third',finish:'third'}
  ]},
@@ -218,6 +218,9 @@ const attempt=value=>{
  all('form')[0].onsubmit({preventDefault(){}});
 };
 assert.deepEqual(cards().map(e=>e.className),['section-card section-open','section-card section-locked','section-card section-locked']);
+const sectionIcon=card=>card.all().find(e=>e.className==='section-icon').innerHTML;
+assert.equal(sectionIcon(cards()[0]),window.ScenaPlayer.sectionIcons.chart.markup);
+assert.equal(sectionIcon(cards()[1]),window.ScenaPlayer.sectionIcons.folder.markup);
 const openCard=()=>all('button').find(e=>e.className==='section-card section-open');
 assert.equal(openCard(),cards()[0]);
 assert.ok(openCard().all().some(e=>e.textContent==='1. '+sectionCourse.steps[0].sections[0].label));

@@ -72,7 +72,7 @@ async function build(course,assets={}){
  for(const s of clone.steps)for(const v of s.decorations||[])if(v.type==='image'&&!allowed.has(v.src))throw Error('Картинка не включена в пакет: '+v.src);
  const data=JSON.stringify(clone).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
  const html='<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escapeXML(course.title)+'</title><link rel="stylesheet" href="player.css">'+root.ScenaPlayer.markup+'<script src="course.js"></script><script src="player.js"></script></html>';
- files.push(['index.html',html],['player.css',css],['course.js','window.SCENA_COURSE='+data+';'],['player.js','('+player.toString()+')(window.SCENA_COURSE,'+runtime.toString()+','+root.ScenaVisuals.markup.toString()+');']);
+ files.push(['index.html',html],['player.css',css],['course.js','window.SCENA_COURSE='+data+';'],['player.js','('+player.toString()+')(window.SCENA_COURSE,'+runtime.toString()+','+root.ScenaVisuals.markup.toString()+','+JSON.stringify(root.ScenaPlayer.sectionIcons)+');']);
  const paths=['index.html','player.css','course.js','player.js',...allowed];
  const manifest='<?xml version="1.0" encoding="UTF-8"?><manifest identifier="'+escapeXML(course.id)+'" version="1.0" xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2" xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"><metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata><organizations default="ORG"><organization identifier="ORG"><title>'+escapeXML(course.title)+'</title><item identifier="ITEM" identifierref="SCO"><title>'+escapeXML(course.title)+'</title></item></organization></organizations><resources><resource identifier="SCO" type="webcontent" adlcp:scormtype="sco" href="index.html">'+paths.map(p=>'<file href="'+escapeXML(p)+'"/>').join('')+'</resource></resources></manifest>';
  files.unshift(['imsmanifest.xml',manifest]);return new Blob([zip(files)],{type:'application/zip'});
@@ -83,7 +83,7 @@ function preview(course,assets={}){
  for(const step of clone.steps)for(const v of step.decorations||[])if(v.type==='image'){if(!assets[v.src])throw Error('Не найдена картинка: '+v.src);v.src=assets[v.src];}
  if(clone.theme?.logo){if(!assets[clone.theme.logo])throw Error('Не найден логотип.');clone.theme.logo=assets[clone.theme.logo];}
  const json=JSON.stringify(clone).replace(/</g,'\\u003c');
- return '<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Предпросмотр</title><style>'+root.ScenaPlayer.css+'</style>'+root.ScenaPlayer.markup+'<script>('+root.ScenaPlayer.run.toString()+')('+json+','+runtime.toString()+','+root.ScenaVisuals.markup.toString()+');</script></html>';
+ return '<!doctype html><html lang="ru"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Предпросмотр</title><style>'+root.ScenaPlayer.css+'</style>'+root.ScenaPlayer.markup+'<script>('+root.ScenaPlayer.run.toString()+')('+json+','+runtime.toString()+','+root.ScenaVisuals.markup.toString()+','+JSON.stringify(root.ScenaPlayer.sectionIcons)+');</script></html>';
 }
 root.ScenaSCORM=Object.freeze({version:'4.0.0',validate,build,runtime,preview});
 })(typeof window!=='undefined'?window:globalThis);

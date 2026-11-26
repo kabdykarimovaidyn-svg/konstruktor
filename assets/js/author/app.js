@@ -46,6 +46,15 @@ function openElementTools(){
  section?.scrollIntoView({block:'nearest'});
  section?.querySelector('summary')?.focus({preventScroll:true});
 }
+function sectionIconPicker(card,index){
+ const icons=ScenaPlayer.sectionIcons;
+ const selected=Object.hasOwn(icons,card.icon)?card.icon:'folder';
+ const current=icons[selected];
+ return '<details class="advanced section-icon-picker"><summary>'+current.markup+'<span>Иконка: '+h(current.label)+'</span></summary>'+
+  '<div class="section-icon-grid" role="group" aria-label="Иконки раздела">'+Object.entries(icons).map(([key,icon])=>
+   '<button type="button" data-section-icon="'+key+'" data-section-index="'+index+'" title="'+h(icon.label)+'" aria-label="'+h(icon.label)+'" aria-pressed="'+(key===selected)+'">'+icon.markup+'</button>'
+  ).join('')+'</div></details>';
+}
 function renderInspector(){
  const n=node(),panel=$('inspector-content');
  $('selected-id').textContent=n?.id||'';
@@ -158,7 +167,7 @@ function renderInspector(){
     input('Название раздела',base+'label',card.label)+
     target('Первый шаг',base+'next',card.next,{contentOnly:true})+
     target('Завершение раздела',base+'finish',card.finish,{contentOnly:true})+
-    '<label>Иконка<select data-path="'+base+'icon">'+Object.entries({folder:'Папка',browser:'Браузер',mail:'Почта',shield:'Защита'}).map(([key,label])=>'<option value="'+key+'" '+(key===(card.icon||'folder')?'selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
+    sectionIconPicker(card,i)+
     '<button data-move-section="'+i+'" data-direction="-1" '+(i===0?'disabled':'')+'>Выше</button> '+
     '<button data-move-section="'+i+'" data-direction="1" '+(i===n.sections.length-1?'disabled':'')+'>Ниже</button> '+
     '<button data-remove-section="'+i+'" class="danger">Удалить</button>',true);
@@ -432,6 +441,15 @@ $('inspector-content').addEventListener('change',e=>{if(e.target.hasAttribute('d
  }
  if(path==='next'||/^options\.\d+\.next$/.test(path))p.settings.flow='branching';if(path==='group'){selectedGroup=value;M.sequence(p);}if(/(?:rect|submitRect)\./.test(path)){const base=path.split('.').slice(0,-1);let r=n;for(const key of base)r=r[key];r.x=Math.max(0,Math.min(99,r.x));r.y=Math.max(0,Math.min(99,r.y));r.w=Math.max(1,Math.min(100-r.x,r.w));r.h=Math.max(1,Math.min(100-r.y,r.h));}if(/^fields\.\d+\.kind$/.test(path)){const f=n.fields[Number(path.split('.')[1])];if(value!=='text'){f.rule='exact';delete f.match;delete f.inputType;if(['select','radio'].includes(value)&&!f.choices){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';}}}if(path==='background'&&value)n.video='';if(path==='video'&&value){n.background='';n.selectBeforeContinue=false;}});render();});
 $('inspector-content').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!node())return;const d=b.dataset,n=node();
+ if(d.sectionIcon){
+  const icons=ScenaPlayer.sectionIcons,card=n.sections?.[Number(d.sectionIndex)];
+  if(!card||!Object.hasOwn(icons,d.sectionIcon)||card.icon===d.sectionIcon)return;
+  const icon=icons[d.sectionIcon],picker=b.closest('.section-icon-picker');
+  mutate(()=>card.icon=d.sectionIcon);
+  picker.querySelectorAll('[data-section-icon]').forEach(entry=>entry.setAttribute('aria-pressed',String(entry===b)));
+  picker.querySelector('summary').innerHTML=icon.markup+'<span>Иконка: '+h(icon.label)+'</span>';
+  return;
+ }
  if('addSection' in d||'removeSection' in d||'moveSection' in d){
   mutate(()=>{
    if('addSection' in d)n.sections.push(M.sectionCard('Раздел '+(n.sections.length+1)));
