@@ -216,8 +216,12 @@ function run(course,runtimeFactory,visualMarkup,icons=window.ScenaPlayer?.sectio
   const nav=$('course-section-return'),menu=replay?.menu||sectionMenus[0];
   if(!nav)return;
   const current=byId[state.step];
-  nav.hidden=!learning||!menu||sectionPreview||['intro','end'].includes(current.type)||current.template==='sections';
-  nav.onclick=nav.hidden?null:()=>backToSections(menu);
+  const previewMenu=course.preview&&course.previewSectionMenu;
+  const canReturn=menu&&!sectionPreview&&!['intro','end'].includes(current.type)&&current.template!=='sections';
+  nav.hidden=!learning||!(previewMenu||canReturn);
+  nav.onclick=nav.hidden?null:previewMenu
+   ?()=>window.parent?.postMessage({type:'scena-preview-sections',token:course.previewToken},'*')
+   :()=>backToSections(menu);
  }
  function renderSectionModes(menu,header){
   const counts=el('div',undefined,header,'section-mode-picker');
@@ -424,7 +428,7 @@ function run(course,runtimeFactory,visualMarkup,icons=window.ScenaPlayer?.sectio
   if((!active&&!failed&&(!guided||exam))||sectionPreview)button(guided&&exam?'К итогам экзамена':'К завершению курса',()=>go(menu.next),navigation(area),'sections-finish');
  }
  function render(){
-  generation++;rememberScreen=null;mediaViewport=null;mediaStage=null;mediaZoom=1;const version=generation;const s=byId[state.step],area=$('screen');area.replaceChildren();area.className=(['intro','end'].includes(s.type)||s.template==='section-end')?'terminal-screen':'content-screen';if($('title').parentElement)$('title').parentElement.hidden=s.type==='intro';if($('course-progress'))$('course-progress').hidden=s.type==='intro';requestFit();$('feedback').textContent='';$('feedback').className='';$('task').textContent=instruction(s);$('step').textContent=s.type==='video'?'Видеоматериал':s.type==='choice'?'Вопрос':s.type==='message'?'Пояснение':s.type==='slide'?'Презентация':'Практическое задание';stats();progress();if($('task-title'))$('task-title').textContent=s.taskTitle||({video:'Просмотр видео',choice:'Выбор решения',form:'Работа в программе',click:'Работа в программе',message:'Изучение материала',slide:'Презентация'})[s.type]||'Учебный шаг';if($('task-banner')){const banner=$('task-banner');banner.hidden=['end','intro'].includes(s.type)||['guide','section-end'].includes(s.template);banner.style.visibility=s.template==='sections'?'hidden':'';}if($('work-bar'))$('work-bar').hidden=['end','intro'].includes(s.type);
+  generation++;rememberScreen=null;mediaViewport=null;mediaStage=null;mediaZoom=1;const version=generation;const s=byId[state.step],area=$('screen');area.replaceChildren();area.className=(['intro','end'].includes(s.type)||s.template==='section-end')?'terminal-screen':'content-screen';if($('title').parentElement)$('title').parentElement.hidden=s.type==='intro'&&!(course.preview&&course.previewSectionMenu&&learning);if($('course-progress'))$('course-progress').hidden=s.type==='intro';requestFit();$('feedback').textContent='';$('feedback').className='';$('task').textContent=instruction(s);$('step').textContent=s.type==='video'?'Видеоматериал':s.type==='choice'?'Вопрос':s.type==='message'?'Пояснение':s.type==='slide'?'Презентация':'Практическое задание';stats();progress();if($('task-title'))$('task-title').textContent=s.taskTitle||({video:'Просмотр видео',choice:'Выбор решения',form:'Работа в программе',click:'Работа в программе',message:'Изучение материала',slide:'Презентация'})[s.type]||'Учебный шаг';if($('task-banner')){const banner=$('task-banner');banner.hidden=['end','intro'].includes(s.type)||['guide','section-end'].includes(s.template);banner.style.visibility=s.template==='sections'?'hidden':'';}if($('work-bar'))$('work-bar').hidden=['end','intro'].includes(s.type);
   document.documentElement?.setAttribute('data-course-mode',exam?'test':'learn');
   sectionControls();
   if(guided&&s.type==='end'){
@@ -599,6 +603,8 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 
 .course-section-return{font:inherit;font-size:12px;padding:4px 8px;white-space:nowrap;background:#fff;color:#17456d;border-color:#a9c4db}
 .course-section-return[hidden]{display:none}
+.course-header>.course-section-return{margin-left:auto}
+.course-header>.course-section-return:not([hidden])+.error-counter{margin-left:0}
 @media(max-width:500px){.course-header:has(.course-section-return:not([hidden])){flex-wrap:wrap}.course-header:has(.course-section-return:not([hidden])) h1{width:100%}}
 .sections-body>.section-summary{text-align:center}
 .section-mode-picker{flex:none;display:flex;gap:8px;width:min(100%,420px);margin:7px auto 0}

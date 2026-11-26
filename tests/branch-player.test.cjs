@@ -366,3 +366,15 @@ assert.equal(examResult.getState().failed,'first');
 assert.equal(examResult.getState().step,'menu');
 assert.ok(all('strong').some(e=>e.textContent==='Раздел не сдан'));
 console.log('Экран завершения раздела и отказ до показа успешного результата проверены.');
+
+const stepPreview={...sectionCourse,start:'first',mode:'learn',preview:true,previewScope:'step',previewSectionMenu:true,previewToken:'test-preview'};
+let previewMessage;
+window.parent={postMessage(message){previewMessage=message;}};
+window.ScenaPlayer.run(stepPreview,()=>bridge);
+assert.equal(back.hidden,false);
+assert.equal(nodes.errors.textContent,'Обучение · без оценки');
+back.onclick();
+assert.equal(previewMessage.type,'scena-preview-sections');
+assert.equal(previewMessage.token,stepPreview.previewToken);
+window.ScenaPlayer.run({...stepPreview,mode:'test'},()=>bridge);
+assert.equal(back.hidden,true);

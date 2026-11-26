@@ -120,13 +120,15 @@ for(const scope of [false,'from']){
  previewContext.preview(scope);
  const course=JSON.parse(elements['preview-frame'].srcdoc);
  assert.equal(course.mode,'guided');
- assert.equal(elements['preview-sections'].hidden,true);
+ assert.equal(course.previewSectionMenu,false);
 }
 previewContext.preview(true);
 assert.equal(JSON.parse(elements['preview-frame'].srcdoc).previewScope,'step');
-assert.equal(elements['preview-sections'].hidden,false);
+assert.equal(JSON.parse(elements['preview-frame'].srcdoc).previewSectionMenu,true);
 previewContext.preview('sections');
 assert.equal(JSON.parse(elements['preview-frame'].srcdoc).start,previewMenu.id);
-assert.equal(elements['preview-sections'].hidden,true);
-assert.doesNotMatch(fs.readFileSync(require.resolve('../index.html'),'utf8'),/id="preview-mode"/);
+assert.equal(JSON.parse(elements['preview-frame'].srcdoc).previewSectionMenu,false);
+const previewMarkup=fs.readFileSync(require.resolve('../index.html'),'utf8').match(/<dialog id="preview-dialog".*?<\/dialog>/)[0];
+assert.doesNotMatch(previewMarkup,/dialog-bar|id="preview-mode"/);
+assert.ok(previewMarkup.indexOf('</iframe>')<previewMarkup.indexOf('id="close-preview"'));
 console.log('Предпросмотр с выбранного шага использует меню режимов плеера, отдельный шаг имеет выход к разделам.');

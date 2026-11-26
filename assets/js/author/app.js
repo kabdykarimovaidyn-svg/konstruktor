@@ -392,11 +392,11 @@ function preview(scope=false){try{
  const guided=!single&&course.steps.some(s=>s.template==='sections');
  course.mode=guided?'guided':p.settings.mode;
  previewToken=M.uid('preview');course.previewToken=previewToken;
+ course.previewSectionMenu=!!menu&&!guided&&course.mode==='learn';
  const resources=Object.fromEntries(Object.keys(p.assets).map(path=>[path,url(path)]));
  const content=ScenaSCORM.preview(course,resources);
  $('preview-frame').srcdoc=content;
- $('preview-sections').hidden=!menu||guided||course.mode!=='learn';
- document.querySelector('#preview-dialog .dialog-bar strong').textContent=(sections?'Выбор раздела':from?'Курс с выбранного шага':single?'Проверка выбранного шага':'Предпросмотр курса')+(course.previewDependencies?' · сначала исходные поля':'')+(from&&course.start===p.start&&selected!==p.start&&menu?' · разделы по порядку':'');
+ $('preview-note').textContent=course.previewDependencies?'Сначала исходные поля':from&&course.start===p.start&&selected!==p.start&&menu?'Разделы по порядку':'';
  if(!$('preview-dialog').open)$('preview-dialog').showModal();
  }catch(error){notice('Проверьте настройки: '+error.message);}}
 
@@ -515,7 +515,13 @@ $('batch-list').onclick=e=>{const b=e.target.closest('button');if(!b)return;cons
 $('configure-flow').onclick=()=>setTab('settings');$('course-flow').onchange=async()=>{const next=$('course-flow').value;if(next==='sequence'&&p.steps.some(n=>n.template==='sections')){notice('Страница выбора разделов использует настроенные переходы.');renderSettings();return;}if(next==='sequence'&&p.steps.filter(n=>n.type==='end').length>1){notice('Для прохождения по порядку оставьте один итоговый экран.');renderSettings();return;}if(next==='sequence'&&p.steps.some(n=>n.type==='return')){notice('Удалите шаги возврата перед переходом к прохождению по порядку.');renderSettings();return;}if(next==='sequence'&&p.settings.flow!=='sequence'&&!await confirmAction('Изменить порядок прохождения?','Все правильные ответы и шаги будут вести дальше по списку слева. Настроенные ветки заменятся последовательностью. Действие можно отменить.','Идти по порядку')){renderSettings();return;}mutate(()=>{p.settings.flow=next;M.sequence(p);if(next==='sequence')ScenaMap.arrange();});render();};
 $('media-grid').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.useAsset){const n=node();if(!n){notice('Сначала добавьте шаг.');return;}const path=b.dataset.useAsset,a=p.assets[path];if(a.blob.type.startsWith('video/')&&n.type!=='video'){notice('Выберите шаг типа «Видео» в левой панели.');return;}if(a.blob.type.startsWith('image/')&&!['form','click','choice','message'].includes(n.type)){notice('Выберите шаг тренажёра или выбора.');return;}mutate(()=>{n[a.blob.type.startsWith('video/')?'src':'background']=path;if(a.blob.type.startsWith('image/')&&n.type==='choice')n.video='';});setTab('editor');}if(b.dataset.deleteAsset){mutate(()=>delete p.assets[b.dataset.deleteAsset]);renderMedia();}};
 $('start-step').onchange=()=>{mutate(()=>p.start=$('start-step').value);render();};$('course-mode').onchange=()=>mutate(()=>p.settings.mode=$('course-mode').value);$('course-penalty').onchange=()=>{mutate(()=>p.settings.penalty=Math.max(0,Math.min(100,Number($('course-penalty').value)||0)));renderSettings();};$('validate-course').onclick=()=>{$('validation-results').innerHTML=issuesHTML(check());};
-$('preview-from').onclick=()=>preview('from');$('preview-sections').onclick=()=>preview('sections');$('preview-course').onclick=()=>preview();$('preview-node').onclick=()=>preview(true);$('close-preview').onclick=()=>{$('preview-dialog').close();$('preview-frame').srcdoc='';};$('preview-dialog').addEventListener('close',()=>{$('preview-frame').srcdoc='';previewToken=null;});window.addEventListener('message',e=>{if(e.source===$('preview-frame').contentWindow&&e.data?.type==='scena-preview-finished'&&previewToken&&e.data.token===previewToken)$('preview-dialog').close();});
+$('preview-from').onclick=()=>preview('from');$('preview-course').onclick=()=>preview();$('preview-node').onclick=()=>preview(true);$('close-preview').onclick=()=>$('preview-dialog').close();
+$('preview-dialog').addEventListener('close',()=>{$('preview-frame').srcdoc='';previewToken=null;});
+window.addEventListener('message',e=>{
+ if(e.source!==$('preview-frame').contentWindow||!previewToken||e.data?.token!==previewToken)return;
+ if(e.data.type==='scena-preview-finished')$('preview-dialog').close();
+ if(e.data.type==='scena-preview-sections')preview('sections');
+});
 $('export-course').onclick=()=>{const report=check(),guided=p.steps.some(s=>s.template==='sections');
  $('build-scorm').textContent=guided?'Скачать обучение и экзамен':'Скачать обучение';
  $('build-exam').hidden=guided;
