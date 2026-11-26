@@ -44,13 +44,19 @@ function browserTemplate(group){
 }
 function field(){return {id:uid('field'),label:'Поле ввода',rule:'exact',expected:'',rect:{x:20,y:35,w:60,h:10}};}
 function links(n){const primary= n.type==='end'?[]:n.options?n.options.filter(o=>!o.wrong).map(o=>({key:o.id||String(n.options.indexOf(o)),label:o.label,to:o.next})): [{key:'next',label:n.type==='return'?'Повторить выбор':'Далее',to:n.next}];return [...primary,...(n.template==='sections'?(n.sections||[]).map(s=>({key:s.id,label:s.label,to:s.next})):[]),...(n.jumps||[]).map(j=>({key:j.id,label:j.label,to:j.next}))];}
-function toCourse(p){return {coverLogo:brandLogo,id:p.id,title:p.title,start:p.start,mode:p.settings.mode,penalty:p.settings.penalty,theme:structuredClone(p.theme||{}),steps:p.steps.map(n=>{const s=structuredClone(n);if(s.template==='section-end')s.sectionTitle=sectionTitle(p,n);delete s.group;return s;})};}
+function copyCourseStep(p,step){
+ const copy=structuredClone(step);
+ if(step.template==='sections')copy.sections=sectionEntries(p,step).map(({index})=>copy.sections[index]);
+ if(step.template==='section-end')copy.sectionTitle=sectionTitle(p,step);
+ return copy;
+}
+function toCourse(p){return {coverLogo:brandLogo,id:p.id,title:p.title,start:p.start,mode:p.settings.mode,penalty:p.settings.penalty,theme:structuredClone(p.theme||{}),steps:p.steps.map(n=>{const s=copyCourseStep(p,n);delete s.group;return s;})};}
 // Stable mode-specific package IDs isolate LMS progress without changing the editable project.
 function exportCourse(p,mode=p.settings.mode){
  if(!['learn','test','guided'].includes(mode))throw Error('Выберите режим курса.');
  const course=toCourse(p);course.id=p.id.slice(0,74)+'-'+mode;course.mode=mode;return course;
 }
-function previewCourse(p,id){const current=p.steps.find(n=>n.id===id);if(!current)throw Error('Выберите шаг.');const missing=current.jumps?.find(j=>!j.next)||current.options?.find(o=>!o.wrong&&!o.next);if(missing)throw Error('У элемента «'+missing.label+'» не выбран следующий шаг.');const finish={id:'preview_finish',type:'end',title:'Проверка шага завершена',body:'Этот шаг работает. Закройте предпросмотр, чтобы продолжить редактирование.'};while(p.steps.some(n=>n.id===finish.id))finish.id+='x';const nodes=new Map();function add(n){if(!n||nodes.has(n.id))return;const copy=structuredClone(n);if(n.template==='section-end')copy.sectionTitle=sectionTitle(p,n);nodes.set(copy.id,copy);if(copy.type==='return'){const question=p.steps.find(n=>n.id===copy.next&&n.type==='choice');if(!question)throw Error('Выберите вопрос для возврата.');add(question);}else if(copy.type!=='end'){if(copy.template==='sections')copy.sections.forEach(card=>{card.next=finish.id;card.finish=finish.id;});if(copy.jumps)copy.jumps.forEach(j=>j.next=finish.id);if(copy.options)copy.options.forEach(o=>{if(!o.wrong)o.next=finish.id;});else copy.next=finish.id;}if(copy.video){const video=p.steps.find(n=>n.id===copy.video&&n.type==='video');if(!video)throw Error('Выберите видео для последнего кадра.');add(video);}}add(current);if(current.type==='video'&&!current.options){const question=p.steps.find(n=>n.id===current.next&&n.type==='choice');if(question){add(question);nodes.get(current.id).next=question.id;}}const dependencies=[],visited=new Set(),visiting=new Set();function collect(n){if(visiting.has(n.id))throw Error('Поля не могут ссылаться друг на друга по кругу.');if(visited.has(n.id))return;visiting.add(n.id);for(const f of n.fields||[])for(const ref of [f.rule==='match'?f.match:null,f.autofill].filter(Boolean))if(ref.stepId!==n.id){const source=p.steps.find(s=>s.id===ref.stepId);if(!source)throw Error('Выберите исходное поле для сравнения.');collect(source);add(source);if(!dependencies.includes(source.id))dependencies.push(source.id);}visiting.delete(n.id);visited.add(n.id);}collect(current);dependencies.forEach((id,index)=>{nodes.get(id).next=dependencies[index+1]||current.id;});return {...toCourse(p),previewScope:'step',previewDependencies:dependencies.length>0,start:dependencies[0]||current.id,steps:[...nodes.values(),finish]};}
+function previewCourse(p,id){const current=p.steps.find(n=>n.id===id);if(!current)throw Error('Выберите шаг.');const missing=current.jumps?.find(j=>!j.next)||current.options?.find(o=>!o.wrong&&!o.next);if(missing)throw Error('У элемента «'+missing.label+'» не выбран следующий шаг.');const finish={id:'preview_finish',type:'end',title:'Проверка шага завершена',body:'Этот шаг работает. Закройте предпросмотр, чтобы продолжить редактирование.'};while(p.steps.some(n=>n.id===finish.id))finish.id+='x';const nodes=new Map();function add(n){if(!n||nodes.has(n.id))return;const copy=copyCourseStep(p,n);nodes.set(copy.id,copy);if(copy.type==='return'){const question=p.steps.find(n=>n.id===copy.next&&n.type==='choice');if(!question)throw Error('Выберите вопрос для возврата.');add(question);}else if(copy.type!=='end'){if(copy.template==='sections')copy.sections.forEach(card=>{card.next=finish.id;card.finish=finish.id;});if(copy.jumps)copy.jumps.forEach(j=>j.next=finish.id);if(copy.options)copy.options.forEach(o=>{if(!o.wrong)o.next=finish.id;});else copy.next=finish.id;}if(copy.video){const video=p.steps.find(n=>n.id===copy.video&&n.type==='video');if(!video)throw Error('Выберите видео для последнего кадра.');add(video);}}add(current);if(current.type==='video'&&!current.options){const question=p.steps.find(n=>n.id===current.next&&n.type==='choice');if(question){add(question);nodes.get(current.id).next=question.id;}}const dependencies=[],visited=new Set(),visiting=new Set();function collect(n){if(visiting.has(n.id))throw Error('Поля не могут ссылаться друг на друга по кругу.');if(visited.has(n.id))return;visiting.add(n.id);for(const f of n.fields||[])for(const ref of [f.rule==='match'?f.match:null,f.autofill].filter(Boolean))if(ref.stepId!==n.id){const source=p.steps.find(s=>s.id===ref.stepId);if(!source)throw Error('Выберите исходное поле для сравнения.');collect(source);add(source);if(!dependencies.includes(source.id))dependencies.push(source.id);}visiting.delete(n.id);visited.add(n.id);}collect(current);dependencies.forEach((id,index)=>{nodes.get(id).next=dependencies[index+1]||current.id;});return {...toCourse(p),previewScope:'step',previewDependencies:dependencies.length>0,start:dependencies[0]||current.id,steps:[...nodes.values(),finish]};}
 // Preview the real route from the selection. Only prerequisite field screens are prepended.
 function previewFrom(p,id){
  const course=toCourse(p),byId=new Map(course.steps.map(s=>[s.id,s]));
@@ -144,6 +150,22 @@ function cleanImport(raw){if(!raw||raw.schema!==2||!Array.isArray(raw.steps)||ra
 function sectionCard(label='Новый раздел',next='',finish='',icon='folder'){
  return {id:uid('section'),label,next,finish,icon};
 }
+function sectionEntries(p,menu){
+ const order=new Map(p.groups.map((group,index)=>[group.id,index]));
+ const stepGroups=new Map(p.steps.filter(step=>!coursePosition(step)).map(step=>[step.id,step.group]));
+ return menu.sections.map((card,index)=>({card,index,group:order.get(stepGroups.get(card.next)??stepGroups.get(card.finish))??p.groups.length}))
+  .sort((a,b)=>a.group-b.group);
+}
+function moveSectionCard(p,menu,index,direction){
+ const entries=sectionEntries(p,menu),position=entries.findIndex(entry=>entry.index===index);
+ const current=entries[position],target=entries[position+direction];
+ if(!current||!target)return;
+ if(current.group===target.group){
+  [menu.sections[current.index],menu.sections[target.index]]=[target.card,current.card];
+ }else if(current.group<p.groups.length&&target.group<p.groups.length){
+  moveGroup(p,p.groups[current.group].id,target.group-current.group);
+ }
+}
 function sectionTitle(p,step){
  const menu=p.steps.find(n=>n.template==='sections'&&n.sections.some(card=>card.finish===step.id));
  return menu?.sections.find(card=>card.finish===step.id)?.label||p.groups.find(g=>g.id===step.group)?.title||'Раздел';
@@ -212,7 +234,7 @@ function addSectionMenu(p){
  return menu;
 }
 function detachSectionMenu(p,menu){
- const cards=menu.sections.filter(card=>p.steps.some(n=>n.id===card.next));
+ const cards=sectionEntries(p,menu).map(({card})=>card).filter(card=>p.steps.some(n=>n.id===card.next));
  cards.forEach((card,index)=>{
   const finish=p.steps.find(n=>n.id===card.finish);
   if(finish)wireSectionEnd(finish,menu.id,cards[index+1]?.next||menu.next);
@@ -274,5 +296,5 @@ function addGuide(p){
 function addIntro(p){if(p.steps.some(n=>n.type==='intro'))return;const intro=node('intro',p.groups[0].id);intro.next=p.start;p.steps.unshift(intro);p.start=intro.id;p.layout[intro.id]={x:60,y:20};sequence(p);}
 function fieldCandidates(p,stepId,fieldId){return FieldRules.candidates({...toCourse(p),steps:ordered(p)},stepId,fieldId);}
 function usedFields(p){return FieldRules.remembered(toCourse(p));}
-root.ScenaModel={brandLogo,coursePosition,stepGroup,structure,sectionTitle,ensureCourseEnd,addSectionEnd,addSectionMenu,sectionCard,sectionMenu,guideNode,addGuide,addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,browserTemplate,field,links,toCourse,exportCourse,previewCourse,previewFrom,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
+root.ScenaModel={brandLogo,coursePosition,stepGroup,structure,sectionEntries,moveSectionCard,sectionTitle,ensureCourseEnd,addSectionEnd,addSectionMenu,sectionCard,sectionMenu,guideNode,addGuide,addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,browserTemplate,field,links,toCourse,exportCourse,previewCourse,previewFrom,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
 })(typeof window!=='undefined'?window:globalThis);

@@ -160,19 +160,23 @@ function renderInspector(){
  let content='';
  if(n.type==='intro')content=textarea('Описание на обложке','body',n.body);
  if(n.template==='sections'){
-  let cards='';
-  n.sections.forEach((card,i)=>{
+  const entries=M.sectionEntries(p,n);
+  const cards=entries.map(({card,index:i,group},position)=>{
    const base='sections.'+i+'.';
-   cards+=section('section-'+card.id,'Раздел '+(i+1),
+   const canMove=direction=>{
+    const target=entries[position+direction];
+    return target&&(target.group===group||target.group<p.groups.length&&group<p.groups.length);
+   };
+   return section('section-'+card.id,'Раздел '+(position+1),
     input('Название раздела',base+'label',card.label)+
     target('Первый шаг',base+'next',card.next,{contentOnly:true})+
     target('Завершение раздела',base+'finish',card.finish,{contentOnly:true})+
     sectionIconPicker(card,i)+
-    '<button data-move-section="'+i+'" data-direction="-1" '+(i===0?'disabled':'')+'>Выше</button> '+
-    '<button data-move-section="'+i+'" data-direction="1" '+(i===n.sections.length-1?'disabled':'')+'>Ниже</button> '+
+    '<button data-move-section="'+i+'" data-direction="-1" '+(canMove(-1)?'':'disabled')+'>Выше</button> '+
+    '<button data-move-section="'+i+'" data-direction="1" '+(canMove(1)?'':'disabled')+'>Ниже</button> '+
     '<button data-remove-section="'+i+'" class="danger">Удалить</button>',true);
-  });
-  out+=section('sections','Разделы и переходы',cards+
+  }).join('');
+  out+=section('sections','Разделы и переходы','<p class="small">Порядок карточек следует списку разделов слева.</p>'+cards+
    '<button data-add-section class="full" '+(n.sections.length>=100?'disabled':'')+'>Добавить раздел</button>'+
    target('Итог курса после всех разделов','next',n.next,{endOnly:true})+
    '<p class="small">Добавьте материал «Завершение раздела» внутри нужного раздела. Он возвращает сюда.</p>',true);
@@ -284,7 +288,7 @@ function renderEditor(){const n=node();$('selected-type').textContent=n?M.types[
  else if(['end'].includes(n.type))content+=`<div class="author-completion" style="font-family:${h(p.theme?.font||'Arial')};border-top-color:${/^#[a-f0-9]{6}$/i.test(p.theme?.color||'')?p.theme.color:'#005ca9'}"><div class="author-completion-icon">${n.type==='intro'?'▶':'✓'}</div>${p.theme?.logo?`<img class="author-logo" src="${url(p.theme.logo)}" alt="Логотип">`:``}<small>${n.type==='intro'?'ДОБРО ПОЖАЛОВАТЬ':'ОБУЧЕНИЕ ЗАВЕРШЕНО'}</small><h2>${h(p.title)}</h2><p>${h(n.body||'Вы прошли все необходимые задания.')}</p><span class="author-finish-button">${n.type==='intro'?'Начать':'Завершить'}</span><p class="small">${n.type==='intro'?'Кнопка открывает первый материал курса.':'Кнопка сохраняет результат и завершает SCORM-сессию.'}</p></div>`;
  else if(n.template!=='section-end')content+=`<div class="settings-card"><h2>${h(n.title)}</h2><p style="white-space:pre-wrap">${h(n.body||'Добавьте текст справа.')}</p>${n.type==='end'?'<span class="tag">Завершает курс и передаёт результат в LMS</span>':''}</div>`;
  if(n.template==='section-end')content+=`<div class="author-completion"><div class="author-completion-icon">✓</div><h2>${h(p.title)}</h2><h3>${h(M.sectionTitle(p,n))}</h3><p>${h(n.body||'Раздел завершён.')}</p><span class="author-finish-button">${p.steps.find(s=>s.id===n.next)?.template==='sections'?'К выбору разделов':'Продолжить'}</span></div>`;
- else if(n.template==='sections')content+='<div class="quick-options">'+n.sections.map((card,i)=>'<div class="quick-option"><strong>'+h(card.label)+'</strong><small>'+h(title(card.next))+' → '+h(title(card.finish))+'</small></div>').join('')+'</div>';
+ else if(n.template==='sections')content+='<div class="quick-options">'+M.sectionEntries(p,n).map(({card})=>'<div class="quick-option"><strong>'+h(card.label)+'</strong><small>'+h(title(card.next))+' → '+h(title(card.finish))+'</small></div>').join('')+'</div>';
  else if(n.options)content+='<div class="quick-options">'+n.options.map((o,i)=>`<div class="quick-option"><strong>${i+1}. ${h(o.label)}</strong><small>${o.wrong?'Ошибка → повтор':h(title(o.next))}</small></div>`).join('')+'</div>';else if(n.type!=='end')content+=`<div class="quick-option" style="margin-top:16px"><strong>Далее</strong><small>${h(title(n.next))}</small></div>`;
  $('editor-content').innerHTML=content;if($('screen-wrap')){bindDrawing();ScenaAreas.bind();const video=$('screen-wrap').querySelector('video');if(video)video.onloadedmetadata=()=>{video.currentTime=Math.max(0,video.duration-.05);};}}
 function setDrawing(tool){if(tool.kind==='new-field'&&(node()?.fields?.length||0)>=30){notice('На одном экране доступно до 30 полей.');return;}if(!node()?.background&&!node()?.video){notice('Сначала загрузите скриншот или выберите видео.');return;}document.body.classList.remove('inspector-open');setTab('editor');drawing=tool;renderEditor();$('screen-wrap')?.scrollIntoView({block:'nearest',behavior:'smooth'});}
@@ -454,10 +458,7 @@ $('inspector-content').addEventListener('click',e=>{const b=e.target.closest('bu
   mutate(()=>{
    if('addSection' in d)n.sections.push(M.sectionCard('Раздел '+(n.sections.length+1)));
    if('removeSection' in d)n.sections.splice(Number(d.removeSection),1);
-   if('moveSection' in d){
-    const i=Number(d.moveSection),j=i+Number(d.direction);
-    [n.sections[i],n.sections[j]]=[n.sections[j],n.sections[i]];
-   }
+   if('moveSection' in d)M.moveSectionCard(p,n,Number(d.moveSection),Number(d.direction));
   });
   render();return;
  }
