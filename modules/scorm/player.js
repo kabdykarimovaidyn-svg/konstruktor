@@ -722,6 +722,15 @@ html:fullscreen{background:#f4f7fb}
 .screenshot .kind-selection:has(.screen-selection[data-selected=true]){border-color:#2b9b57;animation:none;box-shadow:0 0 0 1px rgba(43,155,87,.2)}
 .screen-selection[data-selected=true]:hover{background:rgba(43,155,87,.25)}
 .screen-selection:focus-visible{outline:2px solid #2b9b57;outline-offset:2px}
+.screenshot{--area-focus:#538fca}
+html[data-course-mode=learn] .screenshot .field-label:not(.kind-selection,:has([aria-invalid=true])):focus-within{border-color:var(--area-focus)}
+html[data-course-mode=learn] .screenshot .screen-radio:focus-within{outline:1px solid var(--area-focus);outline-offset:-1px}
+html[data-course-mode=learn] .screenshot :is(.field-label,.screen-radio) :is(input,select):focus{outline:none}
+html[data-course-mode=learn] .screenshot .field-label :is(input:not([type=checkbox],[type=radio]),select):focus{border-color:transparent}
+html[data-course-mode=learn] .screenshot .field-label:has([aria-invalid=true]){animation:none;border-color:#bc4431}
+html[data-course-mode=learn] .screenshot .field-label [aria-invalid=true]{outline:none}
+html[data-course-mode=learn] .screenshot .screen-selection:focus-visible:not([aria-invalid=true]){outline:1px solid #2b9b57;outline-offset:-1px}
+html[data-course-mode=learn] .screenshot .hotspot:focus-visible{outline:none;border-color:var(--area-focus)}
 /* Mode is applied once to the whole player, including old projects and SCORM. */
 html[data-course-mode=test] .hotspot,
 html[data-course-mode=test] .hotspot:hover{opacity:0;animation:none;box-shadow:none;background:transparent;border-color:transparent;filter:none}
