@@ -314,23 +314,44 @@ function run(course,runtimeFactory,visualMarkup,icons=window.ScenaPlayer?.sectio
   else el('span',$('step').textContent,footer,'page-caption');
   return el('div',undefined,footer,'screen-actions');
  }
- let fullscreenControl;
+ let fullscreenControl,previewExpanded=false;
  function updateFullscreen(){
   if(!fullscreenControl)return;
-  const active=document.fullscreenElement===document.documentElement&&!!document.fullscreenElement;
+  const active=previewExpanded||document.fullscreenElement===document.documentElement&&!!document.fullscreenElement;
   fullscreenControl.textContent=active?'Свернуть':'На весь экран';
   fullscreenControl.setAttribute('aria-label',active?'Выйти из полноэкранного режима':'На весь экран');
   fullscreenControl.setAttribute('aria-pressed',String(active));
  }
+ function expandPreview(expanded){
+  previewExpanded=expanded;
+  window.parent?.postMessage({type:'scena-preview-expand',token:course.previewToken,expanded},'*');
+  updateFullscreen();
+ }
  async function toggleFullscreen(){
   const root=document.documentElement;
-  if(!root?.requestFullscreen){$('feedback').textContent='Полноэкранный режим недоступен в этом браузере.';return;}
+  if(previewExpanded){expandPreview(false);return;}
+  if(!root?.requestFullscreen){
+   if(editorPreview)expandPreview(true);
+   else $('feedback').textContent='Полноэкранный режим недоступен в этом браузере.';
+   return;
+  }
   try{
    if(document.fullscreenElement===root)await document.exitFullscreen();
    else await root.requestFullscreen();
   }catch{
-   $('feedback').textContent='Контейнер LMS или браузер не разрешает полноэкранный режим.';
+   if(editorPreview&&document.fullscreenElement!==root)expandPreview(true);
+   else $('feedback').textContent='Контейнер LMS или браузер не разрешает полноэкранный режим.';
   }
+ }
+ if(editorPreview){
+  document.addEventListener('keydown',event=>{
+   if(event.key==='Escape'&&previewExpanded){event.preventDefault();expandPreview(false);}
+  });
+  window.addEventListener('message',event=>{
+   if(event.source!==window.parent||event.data?.token!==course.previewToken||event.data.type!=='scena-preview-restore')return;
+   previewExpanded=false;
+   updateFullscreen();
+  });
  }
  function resizeLayout(){fitMedia();}
  const requestFit=()=>{if(typeof window.requestAnimationFrame==='function')window.requestAnimationFrame(resizeLayout);else resizeLayout();};

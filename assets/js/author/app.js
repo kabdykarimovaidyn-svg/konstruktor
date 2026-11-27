@@ -396,6 +396,7 @@ function preview(scope=false){try{
  course.previewNote=course.previewDependencies?'Сначала исходные поля':from&&course.start===p.start&&selected!==p.start&&menu?'Разделы по порядку':'';
  const resources=Object.fromEntries(Object.keys(p.assets).map(path=>[path,url(path)]));
  const content=ScenaSCORM.preview(course,resources);
+ $('preview-dialog').classList.remove('preview-expanded');
  $('preview-frame').srcdoc=content;
  if(!$('preview-dialog').open)$('preview-dialog').showModal();
  }catch(error){notice('Проверьте настройки: '+error.message);}}
@@ -516,11 +517,18 @@ $('configure-flow').onclick=()=>setTab('settings');$('course-flow').onchange=asy
 $('media-grid').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.useAsset){const n=node();if(!n){notice('Сначала добавьте шаг.');return;}const path=b.dataset.useAsset,a=p.assets[path];if(a.blob.type.startsWith('video/')&&n.type!=='video'){notice('Выберите шаг типа «Видео» в левой панели.');return;}if(a.blob.type.startsWith('image/')&&!['form','click','choice','message'].includes(n.type)){notice('Выберите шаг тренажёра или выбора.');return;}mutate(()=>{n[a.blob.type.startsWith('video/')?'src':'background']=path;if(a.blob.type.startsWith('image/')&&n.type==='choice')n.video='';});setTab('editor');}if(b.dataset.deleteAsset){mutate(()=>delete p.assets[b.dataset.deleteAsset]);renderMedia();}};
 $('start-step').onchange=()=>{mutate(()=>p.start=$('start-step').value);render();};$('course-mode').onchange=()=>mutate(()=>p.settings.mode=$('course-mode').value);$('course-penalty').onchange=()=>{mutate(()=>p.settings.penalty=Math.max(0,Math.min(100,Number($('course-penalty').value)||0)));renderSettings();};$('validate-course').onclick=()=>{$('validation-results').innerHTML=issuesHTML(check());};
 $('preview-from').onclick=()=>preview('from');$('preview-course').onclick=()=>preview();$('preview-node').onclick=()=>preview(true);
-$('preview-dialog').addEventListener('close',()=>{$('preview-frame').srcdoc='';previewToken=null;});
+$('preview-dialog').addEventListener('close',()=>{$('preview-dialog').classList.remove('preview-expanded');$('preview-frame').srcdoc='';previewToken=null;});
+$('preview-dialog').addEventListener('cancel',event=>{
+ if(!$('preview-dialog').classList.contains('preview-expanded'))return;
+ event.preventDefault();
+ $('preview-dialog').classList.remove('preview-expanded');
+ $('preview-frame').contentWindow.postMessage({type:'scena-preview-restore',token:previewToken},'*');
+});
 window.addEventListener('message',e=>{
  if(e.source!==$('preview-frame').contentWindow||!previewToken||e.data?.token!==previewToken)return;
  if(e.data.type==='scena-preview-finished'||e.data.type==='scena-preview-close')$('preview-dialog').close();
  if(e.data.type==='scena-preview-sections')preview('sections');
+ if(e.data.type==='scena-preview-expand'&&typeof e.data.expanded==='boolean'&&$('preview-dialog').open)$('preview-dialog').classList.toggle('preview-expanded',e.data.expanded);
 });
 $('export-course').onclick=()=>{const report=check(),guided=p.steps.some(s=>s.template==='sections');
  $('build-scorm').textContent=guided?'Скачать обучение и экзамен':'Скачать обучение';

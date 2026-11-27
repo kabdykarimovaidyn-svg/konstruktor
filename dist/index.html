@@ -21,7 +21,7 @@
 .canvas-type-choice>label:first-child,.canvas-type-choice>[data-area-add]{display:none}.static-slide{display:block;width:100%;border:1px solid #d7e0ea;border-radius:4px}
 .canvas-surface .zone{min-height:0;min-width:0}.canvas-surface.drawing,.canvas-surface.drawing .zone{cursor:crosshair}
 /* Preview uses the iframe height as the actual course viewport. */
-#preview-dialog{width:calc(min(92vw,94dvh * 5 / 3,1480px) * 0.965);height:min(94dvh,900px);max-height:94dvh;overflow:hidden}#preview-dialog[open]{display:flex;flex-direction:column}#preview-frame{display:block;flex:1;min-height:0;height:auto;width:100%}
+#preview-dialog{width:calc(min(92vw,94dvh * 5 / 3,1480px) * 0.965);height:min(94dvh,900px);max-height:94dvh;overflow:hidden}#preview-dialog[open]{display:flex;flex-direction:column}#preview-dialog.preview-expanded{inset:0;margin:0;width:100vw;max-width:none;height:100dvh;max-height:none;border:0;border-radius:0}#preview-frame{display:block;flex:1;min-height:0;height:auto;width:100%}
 
 .author-business-cover{background:white;border:1px solid #dce5ef;border-top:4px solid var(--accent,#005ca9);padding:35px;min-height:450px;display:flex;flex-direction:column}
 .author-business-brand{padding-bottom:20px;border-bottom:1px solid #dde5ed}
@@ -942,23 +942,44 @@ function run(course,runtimeFactory,visualMarkup,icons=window.ScenaPlayer?.sectio
   else el('span',$('step').textContent,footer,'page-caption');
   return el('div',undefined,footer,'screen-actions');
  }
- let fullscreenControl;
+ let fullscreenControl,previewExpanded=false;
  function updateFullscreen(){
   if(!fullscreenControl)return;
-  const active=document.fullscreenElement===document.documentElement&&!!document.fullscreenElement;
+  const active=previewExpanded||document.fullscreenElement===document.documentElement&&!!document.fullscreenElement;
   fullscreenControl.textContent=active?'Свернуть':'На весь экран';
   fullscreenControl.setAttribute('aria-label',active?'Выйти из полноэкранного режима':'На весь экран');
   fullscreenControl.setAttribute('aria-pressed',String(active));
  }
+ function expandPreview(expanded){
+  previewExpanded=expanded;
+  window.parent?.postMessage({type:'scena-preview-expand',token:course.previewToken,expanded},'*');
+  updateFullscreen();
+ }
  async function toggleFullscreen(){
   const root=document.documentElement;
-  if(!root?.requestFullscreen){$('feedback').textContent='Полноэкранный режим недоступен в этом браузере.';return;}
+  if(previewExpanded){expandPreview(false);return;}
+  if(!root?.requestFullscreen){
+   if(editorPreview)expandPreview(true);
+   else $('feedback').textContent='Полноэкранный режим недоступен в этом браузере.';
+   return;
+  }
   try{
    if(document.fullscreenElement===root)await document.exitFullscreen();
    else await root.requestFullscreen();
   }catch{
-   $('feedback').textContent='Контейнер LMS или браузер не разрешает полноэкранный режим.';
+   if(editorPreview&&document.fullscreenElement!==root)expandPreview(true);
+   else $('feedback').textContent='Контейнер LMS или браузер не разрешает полноэкранный режим.';
   }
+ }
+ if(editorPreview){
+  document.addEventListener('keydown',event=>{
+   if(event.key==='Escape'&&previewExpanded){event.preventDefault();expandPreview(false);}
+  });
+  window.addEventListener('message',event=>{
+   if(event.source!==window.parent||event.data?.token!==course.previewToken||event.data.type!=='scena-preview-restore')return;
+   previewExpanded=false;
+   updateFullscreen();
+  });
  }
  function resizeLayout(){fitMedia();}
  const requestFit=()=>{if(typeof window.requestAnimationFrame==='function')window.requestAnimationFrame(resizeLayout);else resizeLayout();};
@@ -2353,6 +2374,7 @@ function preview(scope=false){try{
  course.previewNote=course.previewDependencies?'Сначала исходные поля':from&&course.start===p.start&&selected!==p.start&&menu?'Разделы по порядку':'';
  const resources=Object.fromEntries(Object.keys(p.assets).map(path=>[path,url(path)]));
  const content=ScenaSCORM.preview(course,resources);
+ $('preview-dialog').classList.remove('preview-expanded');
  $('preview-frame').srcdoc=content;
  if(!$('preview-dialog').open)$('preview-dialog').showModal();
  }catch(error){notice('Проверьте настройки: '+error.message);}}
@@ -2473,11 +2495,18 @@ $('configure-flow').onclick=()=>setTab('settings');$('course-flow').onchange=asy
 $('media-grid').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.useAsset){const n=node();if(!n){notice('Сначала добавьте шаг.');return;}const path=b.dataset.useAsset,a=p.assets[path];if(a.blob.type.startsWith('video/')&&n.type!=='video'){notice('Выберите шаг типа «Видео» в левой панели.');return;}if(a.blob.type.startsWith('image/')&&!['form','click','choice','message'].includes(n.type)){notice('Выберите шаг тренажёра или выбора.');return;}mutate(()=>{n[a.blob.type.startsWith('video/')?'src':'background']=path;if(a.blob.type.startsWith('image/')&&n.type==='choice')n.video='';});setTab('editor');}if(b.dataset.deleteAsset){mutate(()=>delete p.assets[b.dataset.deleteAsset]);renderMedia();}};
 $('start-step').onchange=()=>{mutate(()=>p.start=$('start-step').value);render();};$('course-mode').onchange=()=>mutate(()=>p.settings.mode=$('course-mode').value);$('course-penalty').onchange=()=>{mutate(()=>p.settings.penalty=Math.max(0,Math.min(100,Number($('course-penalty').value)||0)));renderSettings();};$('validate-course').onclick=()=>{$('validation-results').innerHTML=issuesHTML(check());};
 $('preview-from').onclick=()=>preview('from');$('preview-course').onclick=()=>preview();$('preview-node').onclick=()=>preview(true);
-$('preview-dialog').addEventListener('close',()=>{$('preview-frame').srcdoc='';previewToken=null;});
+$('preview-dialog').addEventListener('close',()=>{$('preview-dialog').classList.remove('preview-expanded');$('preview-frame').srcdoc='';previewToken=null;});
+$('preview-dialog').addEventListener('cancel',event=>{
+ if(!$('preview-dialog').classList.contains('preview-expanded'))return;
+ event.preventDefault();
+ $('preview-dialog').classList.remove('preview-expanded');
+ $('preview-frame').contentWindow.postMessage({type:'scena-preview-restore',token:previewToken},'*');
+});
 window.addEventListener('message',e=>{
  if(e.source!==$('preview-frame').contentWindow||!previewToken||e.data?.token!==previewToken)return;
  if(e.data.type==='scena-preview-finished'||e.data.type==='scena-preview-close')$('preview-dialog').close();
  if(e.data.type==='scena-preview-sections')preview('sections');
+ if(e.data.type==='scena-preview-expand'&&typeof e.data.expanded==='boolean'&&$('preview-dialog').open)$('preview-dialog').classList.toggle('preview-expanded',e.data.expanded);
 });
 $('export-course').onclick=()=>{const report=check(),guided=p.steps.some(s=>s.template==='sections');
  $('build-scorm').textContent=guided?'Скачать обучение и экзамен':'Скачать обучение';

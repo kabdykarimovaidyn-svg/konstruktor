@@ -110,7 +110,7 @@ const previewContext={
  p:previewProject,selected:previewStep.id,M:ScenaModel,
  check:()=>({problems:[]}),
  notice(message){throw Error(message);},
- $:id=>elements[id]||=( {showModal(){this.open=true;}} ),
+ $:id=>elements[id]||=( {classList:{remove(){}},showModal(){this.open=true;}} ),
  document:{querySelector:()=>({})},
  ScenaSCORM:{preview(course){return JSON.stringify(course);}}
 };
