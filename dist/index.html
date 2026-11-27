@@ -1195,12 +1195,12 @@ const css=`:root{--accent:#005ca9;--course-font:Arial;--heading-color:#21384f;--
 html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 #task{display:block;-webkit-line-clamp:unset;overflow:visible;white-space:pre-wrap;overflow-wrap:anywhere}
 #more-task{display:none!important}#screen.content-screen{min-height:180px}
-.hotspot{opacity:1;color:transparent;background:rgba(0,92,169,.08);border:1px solid rgba(0,92,169,.65);border-radius:4px;animation:area-glow 2.8s ease-in-out infinite}
-.screenshot .field-label{border:1px solid rgba(0,92,169,.65);border-radius:4px;animation:area-glow 2.8s ease-in-out infinite}
+.hotspot{opacity:1;color:transparent;background:rgba(0,92,169,.05)}
+.hotspot,.screenshot .field-label{border:1px solid rgba(0,92,169,.65);border-radius:4px;animation:area-outline 4.5s ease-in-out infinite}
 .hotspot:focus-visible{opacity:1;color:transparent}
-.hotspot:hover,.screenshot .field-label:focus-within{animation:none;box-shadow:0 0 0 2px rgba(0,92,169,.3)}
-@keyframes area-glow{0%,100%{box-shadow:0 0 0 0 rgba(0,92,169,.08)}50%{box-shadow:0 0 0 3px rgba(0,92,169,.28)}}
-@media(prefers-reduced-motion:reduce){.hotspot,.screenshot .field-label{animation:none;box-shadow:0 0 0 1px rgba(0,92,169,.25)}}
+.hotspot:hover,.hotspot:focus-visible,.screenshot .field-label:focus-within{animation:none}
+@keyframes area-outline{0%,100%{border-color:transparent}50%{border-color:rgba(0,92,169,.65)}}
+@media(prefers-reduced-motion:reduce){.hotspot,.screenshot .field-label{animation:none}}
 
 .navigation.guide-navigation{left:0;right:0;max-width:100%;justify-content:center}
 .learner-guide h2{color:var(--heading-color);font-size:clamp(22px,3vw,34px);margin:0 0 5px}
@@ -1258,7 +1258,7 @@ html{overflow:auto}body{overflow:auto}.task-banner{align-items:flex-start}
 .guide-demo h3{font-size:20px;color:var(--heading-color);margin:20px 0 12px}
 .guide-demo p{margin:10px 0 5px}
 .guide-field{background:white;border:1px solid #8aa4bd;border-radius:4px;padding:8px;color:#344c64}
-.guide-active{margin:18px 0 12px;background:#e6f1ff;border:1px solid var(--accent);border-radius:5px;padding:10px;color:var(--accent);animation:area-glow 2.8s ease-in-out infinite;text-align:center}
+.guide-active{margin:18px 0 12px;background:#e6f1ff;border:1px solid var(--accent);border-radius:5px;padding:10px;color:var(--accent);animation:area-outline 4.5s ease-in-out infinite;text-align:center}
 .guide-error{background:#fff0ed;border:1px solid #df7878;color:#a02a24;padding:10px;border-radius:5px;margin:16px 0 10px}
 .guide-list{display:grid;gap:14px}
 .guide-item{display:flex;gap:10px;font-size:13px}
@@ -1323,7 +1323,7 @@ html:fullscreen{background:#f4f7fb}
 .screenshot .field-label,.screenshot .hotspot,.screenshot .screen-radio{z-index:2}
 
 .screenshot .kind-selection{padding:0;background:transparent}
-.screen-selection{display:block;width:100%;height:100%;min-width:0;min-height:0;margin:0;border:1px solid rgba(0,92,169,.4);border-radius:3px;padding:0;background:transparent;color:inherit;cursor:pointer}
+.screen-selection{display:block;width:100%;height:100%;min-width:0;min-height:0;margin:0;border:1px solid transparent;border-radius:3px;padding:0;background:transparent;color:inherit;cursor:pointer}
 .screen-selection:hover{background:rgba(0,92,169,.08);filter:none}
 .screen-selection[data-selected=true]{background:rgba(43,155,87,.2);border:1px solid #2b9b57}
 .screenshot .kind-selection:has(.screen-selection[data-selected=true]){border-color:#2b9b57;animation:none;box-shadow:0 0 0 1px rgba(43,155,87,.2)}
