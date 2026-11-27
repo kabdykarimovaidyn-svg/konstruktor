@@ -1,7 +1,14 @@
 /* Shared field contract. No learner values are stored by the editor. */
 (function(root){'use strict';
 const key=(s,f)=>s+'/'+f,fields=s=>s.type==='input'?[{id:'single',label:s.label,rule:s.rule||'exact',expected:s.expected}]:s.fields||[];
-const links=s=>s.type==='end'?[]:[...(s.options?s.options.filter(o=>!o.wrong&&o.next).map(o=>o.next):s.next?[s.next]:[]),...(s.jumps||[]).map(j=>j.next).filter(Boolean)];
+// A screenshot with extra transitions can rely on them alone.
+function hasPrimaryNext(step){
+ if(!step.jumps?.length||step.showNext===true)return true;
+ if(step.type==='form')return !!step.submitRect;
+ if(step.type==='click')return !!step.rect;
+ return true;
+}
+const links=s=>s.type==='end'?[]:[...(s.options?s.options.filter(o=>!o.wrong&&o.next).map(o=>o.next):hasPrimaryNext(s)&&s.next?[s.next]:[]),...(s.jumps||[]).map(j=>j.next).filter(Boolean)];
 // Section menus expose all destinations to the editor. Learners follow this ordered graph.
 function sectionLinks(course){
  const overrides=new Map();
@@ -52,5 +59,5 @@ if(!['exact','any','url','match','oneOf','range','email','phone'].includes(f.rul
 for(const [type,ref] of [['match',f.rule==='match'?f.match:null],['autofill',f.autofill]]){if(!ref){if(type==='match'&&f.rule==='match')add(s,f,'Выберите исходное поле для сравнения.');continue;}const src=g.byId.get(ref.stepId),sf=src?fields(src):[],at=sf.findIndex(x=>x.id===ref.fieldId);if(!src||at<0){add(s,f,'Выберите существующее исходное поле.');continue;}if(src.id===s.id&&(type==='autofill'||at>=i))add(s,f,'Исходное поле должно заполняться на предыдущем шаге или раньше повторного ввода.');if(src.id!==s.id&&g.reachable.has(s.id)&&!g.dom.get(s.id)?.has(src.id))add(s,f,'Исходное поле может быть пропущено на одной из веток.');if(type==='autofill'){sources.add(key(src.id,sf[at].id));if(sf[at].inputType==='password')add(s,f,'Пароли доступны для сравнения, но не для Autofill.');}}}}
 if(sources.size>8)r.push({message:'Autofill поддерживает до 8 исходных полей на курс.'});return r;}
 function candidates(c,sid,fid){const g=graph(c),target=g.byId.get(sid);if(!target)return [];const ti=fields(target).findIndex(f=>f.id===fid),to=c.steps.indexOf(target),used=remembered(c),r=[];c.steps.forEach((s,order)=>fields(s).forEach((f,i)=>{const earlier=s.id===sid?i<ti:g.reachable.has(sid)?g.dom.get(sid)?.has(s.id):order<to;if(earlier)r.push({stepId:s.id,fieldId:f.id,stepTitle:s.title||'Шаг',label:f.label||'Поле',starred:used.has(key(s.id,f.id)),inputType:f.inputType,kind:f.kind||'text'});}));return r;}
-const api={key,fields,remembered,issues,candidates,sectionLinks,sectionIssues};root.ScenaFields=api;if(typeof module!=='undefined')module.exports=api;
+const api={key,fields,remembered,issues,candidates,hasPrimaryNext,sectionLinks,sectionIssues};root.ScenaFields=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

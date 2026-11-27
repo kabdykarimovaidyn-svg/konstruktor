@@ -112,7 +112,7 @@ function renderInspector(){
   let tools='<p class="tool-instruction">Выберите инструмент и обведите место на скриншоте.</p>';
   if(screen){
    tools+='<div class="tool-group-label">Ввод и действия</div><div class="tool-palette interaction-palette">'+
-    [['text','Поле ввода','input'],['select','Список'],['checkbox','Галочка'],['radio','Переключатели'],['selection','Выбор'],['jump','Переход'],['submit','Проверить']].map(([key,label,icon])=>
+    [['text','Поле ввода','input'],['select','Список'],['checkbox','Галочка'],['radio','Переключатели'],['selection','Выбор'],['jump','Дополнительный переход'],['submit','Кнопка «Далее» на скриншоте']].map(([key,label,icon])=>
      toolButton(key,label,'data-inspector-tool',icon,!n.background&&['jump','submit','selection'].includes(key))).join('')+'</div>';
   }
   tools+='<div class="tool-group-label">Надпись</div><div class="tool-palette text-palette">'+
@@ -125,7 +125,7 @@ function renderInspector(){
   const elements=ScenaAreas.items?.(n)||[];
   if(elements.length||ScenaAreas.canPaste?.()){
    const kindLabel=item=>item.field?({text:'Поле ввода',select:'Список',checkbox:'Галочка',radio:'Переключатели',selection:'Выбор'}[item.field.kind||'text']):
-    item.jump?'Переход':item.visual?(item.visual.type==='image'?'Картинка':item.visual.type==='text'?'Текст':'Фигура'):item.option?'Ответ':'Кнопка';
+    item.jump?'Дополнительный переход':item.visual?(item.visual.type==='image'?'Картинка':item.visual.type==='text'?'Текст':'Фигура'):item.option?'Ответ':'Кнопка «Далее»';
    out+='<div class="applied-elements" role="group" aria-label="Добавленные элементы"><ul class="applied-element-list">'+elements.map(item=>
     '<li><button type="button" data-applied-key="'+h(item.key)+'" aria-pressed="'+(ScenaAreas.selectedKeys?.().includes(item.key)??(selectedEntry?.key===item.key))+'">'+
     '<span>'+h(item.label)+'</span><small>'+h(kindLabel(item))+'</small></button></li>').join('')+'</ul><p class="small">Shift + нажатие — выбрать несколько элементов. Ctrl/Cmd+C, V — копировать и вставить.</p><div class="applied-element-actions"><span>Выбрано: '+(ScenaAreas.selectedKeys?.().length||0)+'</span><button data-copy-elements '+(ScenaAreas.selectedKeys?.().length?'':'disabled')+'>Копировать</button><button data-paste-elements '+(ScenaAreas.canPaste?.()?'':'disabled')+'>Вставить</button></div></div>';
@@ -139,7 +139,7 @@ function renderInspector(){
  }
  if(selectedJump){
   const i=n.jumps.indexOf(selectedJump);
-  out+=section('selected-jump','Свойства перехода',
+  out+=section('selected-jump','Дополнительный переход',
    input('Название области','jumps.'+i+'.label',selectedJump.label)+
    target('Открыть шаг','jumps.'+i+'.next',selectedJump.next)+
    (n.type==='form'?'<label>Проверка и переход<select data-path="jumps.'+i+'.checkBeforeJump"><option value="true" '+((selectedJump.checkBeforeJump??n.fields.some(f=>f.kind!=='selection'||f.selectionRequired===true))?'selected':'')+'>Проверить задание и перейти</option><option value="false" '+((selectedJump.checkBeforeJump??n.fields.some(f=>f.kind!=='selection'||f.selectionRequired===true))?'':'selected')+'>Перейти без проверки</option></select></label>'+
@@ -219,19 +219,20 @@ function renderInspector(){
   let check=textarea('Сообщение при неверном действии','error',n.error);
   if(n.type==='form'){
    check=input('Подпись кнопки проверки','button',n.button)+check+
-    target('После правильного заполнения','next',n.next)+
-    '<button data-draw-submit class="full">Обвести кнопку проверки на скриншоте</button>';
+    (M.hasPrimaryNext(n)?target('Следующий слайд','next',n.next):'')+
+    '<button data-draw-submit class="full">Обвести кнопку «Далее» на скриншоте</button>';
    if(n.submitRect)check+='<details class="advanced"><summary>Положение кнопки проверки</summary>'+rectFields('submitRect',n.submitRect)+'</details><button data-clear-submit class="full">Убрать область проверки</button>';
   }else{
    check=input('Название кнопки','label',n.label)+
-    '<button data-draw-click class="full">Обвести кнопку на скриншоте</button>'+check+
-    target('После нажатия','next',n.next);
+    '<button data-draw-click class="full">Обвести кнопку «Далее» на скриншоте</button>'+check+
+    (M.hasPrimaryNext(n)?target('Следующий слайд','next',n.next):'');
    if(n.rect)check+='<details class="advanced"><summary>Положение кнопки</summary>'+rectFields('rect',n.rect)+'</details>';
   }
   check+=checkbox('Считать ошибкой нажатие мимо активной области','countMissClicks',n.countMissClicks===true)+
    '<p class="small">Если выключено, свободные клики по скриншоту не увеличивают счётчик ошибок. Значения полей проверяются при подтверждении.</p>';
-  check+=checkbox('Показывать «Далее» под экраном','showNext',n.showNext??!(n.jumps?.length||n.submitRect));
-  out+=section('continue','Проверка и продолжение',check);
+  check+=checkbox('Показывать «Далее» под экраном','showNext',n.showNext??!(n.jumps?.length||n.submitRect||n.rect));
+  const hint=n.type==='form'?'Обведите кнопку, которая проверяет задание и открывает следующий слайд.':'Обведите кнопку, которая открывает следующий слайд.';
+  out+=section('continue','Кнопка «Далее» на скриншоте','<p class="small">'+hint+'</p>'+check);
  }
  let next='';
  if(n.type==='video')next=target('После окончания видео','next',n.next);
@@ -289,7 +290,7 @@ function renderEditor(){const n=node();$('selected-type').textContent=n?M.types[
  else if(n.template!=='section-end')content+=`<div class="settings-card"><h2>${h(n.title)}</h2><p style="white-space:pre-wrap">${h(n.body||'Добавьте текст справа.')}</p>${n.type==='end'?'<span class="tag">Завершает курс и передаёт результат в LMS</span>':''}</div>`;
  if(n.template==='section-end')content+=`<div class="author-completion"><div class="author-completion-icon">✓</div><h2>${h(p.title)}</h2><h3>${h(M.sectionTitle(p,n))}</h3><p>${h(n.body||'Раздел завершён.')}</p><span class="author-finish-button">${p.steps.find(s=>s.id===n.next)?.template==='sections'?'К выбору разделов':'Продолжить'}</span></div>`;
  else if(n.template==='sections')content+='<div class="quick-options">'+M.sectionEntries(p,n).map(({card})=>'<div class="quick-option"><strong>'+h(card.label)+'</strong><small>'+h(title(card.next))+' → '+h(title(card.finish))+'</small></div>').join('')+'</div>';
- else if(n.options)content+='<div class="quick-options">'+n.options.map((o,i)=>`<div class="quick-option"><strong>${i+1}. ${h(o.label)}</strong><small>${o.wrong?'Ошибка → повтор':h(title(o.next))}</small></div>`).join('')+'</div>';else if(n.type!=='end')content+=`<div class="quick-option" style="margin-top:16px"><strong>Далее</strong><small>${h(title(n.next))}</small></div>`;
+ else if(n.options)content+='<div class="quick-options">'+n.options.map((o,i)=>`<div class="quick-option"><strong>${i+1}. ${h(o.label)}</strong><small>${o.wrong?'Ошибка → повтор':h(title(o.next))}</small></div>`).join('')+'</div>';else if(n.type!=='end'&&M.hasPrimaryNext(n))content+=`<div class="quick-option" style="margin-top:16px"><strong>Далее</strong><small>${h(title(n.next))}</small></div>`;
  $('editor-content').innerHTML=content;if($('screen-wrap')){bindDrawing();ScenaAreas.bind();const video=$('screen-wrap').querySelector('video');if(video)video.onloadedmetadata=()=>{video.currentTime=Math.max(0,video.duration-.05);};}}
 function setDrawing(tool){if(tool.kind==='new-field'&&(node()?.fields?.length||0)>=30){notice('На одном экране доступно до 30 полей.');return;}if(!node()?.background&&!node()?.video){notice('Сначала загрузите скриншот или выберите видео.');return;}document.body.classList.remove('inspector-open');setTab('editor');drawing=tool;renderEditor();$('screen-wrap')?.scrollIntoView({block:'nearest',behavior:'smooth'});}
 function bindDrawing(){const wrap=$('screen-wrap');let start=null,draft=null;
@@ -299,9 +300,9 @@ function bindDrawing(){const wrap=$('screen-wrap');let start=null,draft=null;
  const type=tool.visualType;
  const names={text:'Текст',rectangle:'Прямоугольник',ellipse:'Круг / овал',triangle:'Треугольник',arrow:'Стрелка',line:'Линия'};
  (n.decorations||=[]).push({id:M.uid('visual'),type,label:names[type],text:type==='text'?'Введите текст':'',rect:r,color:'#005ca9',fill:'#e7f1fb',noFill:type==='text'||type==='line',strokeWidth:2,autoFont:true,font:'Arial',fontSize:24});
-}else if(tool.kind==='new-jump'){(n.jumps||=[]).push({id:M.uid('jump'),label:'Переход',next:'',rect:r});p.settings.flow='branching';}else if(tool.kind==='jump')n.jumps[tool.index].rect=r;else if(tool.kind==='new-field'){if(n.type==='click'){n.type='form';n.fields=[];n.button='Далее';if(n.error==='Нажмите на нужную область.')n.error='Проверьте заполнение полей.';if(n.rect)n.submitRect=n.rect;delete n.rect;}const f=M.field();f.rect=r;f.kind=tool.fieldKind||'text';if(f.kind==='checkbox'){f.label='Галочка';f.expectedChecked=true;}if(f.kind==='selection'){f.label='Выбор';f.selectionRequired=false;}if(['select','radio'].includes(f.kind)){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';f.label=f.kind==='select'?'Список':'Переключатели';}n.fields.push(f);}else if(tool.kind==='field')n.fields[tool.index].rect=r;else if(tool.kind==='submit')n.submitRect=r;else if(tool.kind==='click')n.rect=r;else if(tool.kind==='option')n.options[tool.index].rect=r;});drawing=null;if(tool.kind==='new-visual'){
+}else if(tool.kind==='new-jump'){(n.jumps||=[]).push({id:M.uid('jump'),label:'Дополнительный переход',next:'',rect:r});p.settings.flow='branching';}else if(tool.kind==='jump')n.jumps[tool.index].rect=r;else if(tool.kind==='new-field'){if(n.type==='click'){n.type='form';n.fields=[];n.button='Далее';if(n.error==='Нажмите на нужную область.')n.error='Проверьте заполнение полей.';if(n.rect)n.submitRect=n.rect;delete n.rect;}const f=M.field();f.rect=r;f.kind=tool.fieldKind||'text';if(f.kind==='checkbox'){f.label='Галочка';f.expectedChecked=true;}if(f.kind==='selection'){f.label='Выбор';f.selectionRequired=false;}if(['select','radio'].includes(f.kind)){f.choices='Вариант 1\nВариант 2';f.expected='Вариант 1';f.label=f.kind==='select'?'Список':'Переключатели';}n.fields.push(f);}else if(tool.kind==='field')n.fields[tool.index].rect=r;else if(tool.kind==='submit')n.submitRect=r;else if(tool.kind==='click')n.rect=r;else if(tool.kind==='option')n.options[tool.index].rect=r;});drawing=null;if(tool.kind==='new-visual'){
  inspectorSections.set(n.id+':add',false);inspectorSections.set(n.id+':visual-properties',true);inspectorSections.set(n.id+':design',true);
-}if(['new-jump','new-field'].includes(tool.kind))inspectorSections.set(n.id+':add',false);if(tool.kind==='new-jump'){inspectorSections.set(n.id+':field',false);inspectorSections.set(n.id+':add',false);inspectorSections.set(n.id+':jump-'+n.jumps.at(-1).id,true);}if(tool.kind==='new-field')inspectorSections.set(n.id+':field',true);render();if(tool.kind==='new-visual')ScenaAreas.pickVisual(n.decorations.at(-1).id);if(tool.kind==='new-jump')ScenaAreas.pickEntry('j:'+n.jumps.at(-1).id);if(tool.kind==='new-field')ScenaAreas.pickField(n.fields.at(-1).id);notice(tool.kind==='new-visual'?'Объект добавлен. Текст и оформление можно изменить справа.':tool.kind==='new-jump'?'Область сохранена. Выберите целевой шаг справа.':'Область сохранена. Настройте проверку шага.');if((n.type==='form'||tool.kind==='new-jump')&&innerWidth<=1160)document.body.classList.add('inspector-open');};wrap.onpointercancel=()=>{start=null;draft?.remove();draft=null;};}
+}if(['new-jump','new-field'].includes(tool.kind))inspectorSections.set(n.id+':add',false);if(tool.kind==='new-jump'){inspectorSections.set(n.id+':field',false);inspectorSections.set(n.id+':add',false);inspectorSections.set(n.id+':jump-'+n.jumps.at(-1).id,true);}if(tool.kind==='new-field')inspectorSections.set(n.id+':field',true);if(['submit','click'].includes(tool.kind))inspectorSections.set(n.id+':continue',true);render();if(tool.kind==='new-visual')ScenaAreas.pickVisual(n.decorations.at(-1).id);if(tool.kind==='new-jump')ScenaAreas.pickEntry('j:'+n.jumps.at(-1).id);if(tool.kind==='new-field')ScenaAreas.pickField(n.fields.at(-1).id);if(['submit','click'].includes(tool.kind))ScenaAreas.pickEntry(tool.kind);notice(tool.kind==='new-visual'?'Объект добавлен. Текст и оформление можно изменить справа.':tool.kind==='new-jump'?'Область сохранена. Выберите целевой шаг справа.':['submit','click'].includes(tool.kind)?'Кнопка «Далее» сохранена. Выберите следующий слайд справа.':'Область сохранена. Настройте проверку шага.');if((n.type==='form'||['new-jump','click'].includes(tool.kind))&&innerWidth<=1160)document.body.classList.add('inspector-open');};wrap.onpointercancel=()=>{start=null;draft?.remove();draft=null;};}
 function loadCropImage(path){
  return new Promise((resolve,reject)=>{
   const img=new Image();

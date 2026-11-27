@@ -40,11 +40,16 @@ for(const type of ['form','click','choice','video','intro','message','slide','re
  assert.ok(panel.innerHTML.includes('Оформление'));
  assert.ok(!panel.innerHTML.includes('data-screen-action'));
  if(type==='form'){
-  for(const name of ['Добавить элемент','Свойства поля','Добавленные элементы','Проверка и продолжение'])
+  for(const name of ['Добавить элемент','Свойства поля','Добавленные элементы','Кнопка «Далее» на скриншоте','Дополнительный переход'])
    assert.ok(panel.innerHTML.includes(name),name);
   assert.ok(panel.innerHTML.includes('data-inspector-tool="jump"'));
   assert.ok(panel.innerHTML.includes('data-path="fields.0.expected"')===false);
   assert.ok(panel.innerHTML.includes('data-applied-key="j:jump1"'));
+  assert.doesNotMatch(panel.innerHTML,/data-path="next"/);
+  selected.showNext=true;
+  vm.runInContext('renderInspector()',context);
+  assert.match(panel.innerHTML,/data-path="next"/);
+  delete selected.showNext;
  }
 }
 console.log('Правая панель: разделы, инструменты, выбранное поле и переходы доступны для всех типов шагов.');
@@ -75,6 +80,11 @@ assert.ok(panel.innerHTML.slice(0,panel.innerHTML.lastIndexOf('<div',appliedList
 console.log('Применённые переходы отображаются соседним списком после закрытого раздела добавления.');
 
 assert.ok(panel.innerHTML.includes('data-applied-key="j:jump1"'));
+  assert.doesNotMatch(panel.innerHTML,/data-path="next"/);
+  selected.showNext=true;
+  vm.runInContext('renderInspector()',context);
+  assert.match(panel.innerHTML,/data-path="next"/);
+  delete selected.showNext;
 assert.ok(panel.innerHTML.includes('data-applied-key="v:v1"'));
 assert.ok(panel.innerHTML.includes('data-applied-key="f:'));
 console.log('Список добавленных объектов содержит поля, переходы и фигуры.');
@@ -82,7 +92,7 @@ console.log('Список добавленных объектов содержи
 context.ScenaAreas.currentEntry=n=>({key:'j:jump1',label:n.jumps[0].label,jump:n.jumps[0]});
 context.ScenaAreas.currentVisual=()=>undefined;
 vm.runInContext('renderInspector()',context);
-assert.ok(panel.innerHTML.includes('Свойства перехода'));
+assert.match(panel.innerHTML,/<summary>Дополнительный переход<\/summary>/);
 assert.ok(panel.innerHTML.includes('data-path="jumps.0.next"'));
 console.log('Выбор применённого перехода открывает его настройки.');
 

@@ -43,7 +43,8 @@ function browserTemplate(group){
  return {node:n,svg};
 }
 function field(){return {id:uid('field'),label:'Поле ввода',rule:'exact',expected:'',rect:{x:20,y:35,w:60,h:10}};}
-function links(n){const primary= n.type==='end'?[]:n.options?n.options.filter(o=>!o.wrong).map(o=>({key:o.id||String(n.options.indexOf(o)),label:o.label,to:o.next})): [{key:'next',label:n.type==='return'?'Повторить выбор':'Далее',to:n.next}];return [...primary,...(n.template==='sections'?(n.sections||[]).map(s=>({key:s.id,label:s.label,to:s.next})):[]),...(n.jumps||[]).map(j=>({key:j.id,label:j.label,to:j.next}))];}
+function links(n){const primary= n.type==='end'?[]:n.options?n.options.filter(o=>!o.wrong).map(o=>({key:o.id||String(n.options.indexOf(o)),label:o.label,to:o.next})): FieldRules.hasPrimaryNext(n)?[{key:'next',label:n.type==='return'?'Повторить выбор':'Далее',to:n.next}]:[];return [...primary,...(n.template==='sections'?(n.sections||[]).map(s=>({key:s.id,label:s.label,to:s.next})):[]),...(n.jumps||[]).map(j=>({key:j.id,label:j.label,to:j.next}))];}
+
 function copyCourseStep(p,step){
  const copy=structuredClone(step);
  if(step.template==='sections')copy.sections=sectionEntries(p,step).map(({index})=>copy.sections[index]);
@@ -108,7 +109,7 @@ function inspect(p){const problems=[],warnings=[],ids=new Set(p.steps.map(s=>s.i
   const incoming=p.steps.filter(source=>links(source).some(edge=>edge.to===n.id));
   const reason=incoming.length
    ?'На него ведут переходы из '+incoming.map(source=>'«'+source.title+'»').join(', ')+', но эти шаги тоже не соединены с началом курса. Свяжите эту ветку с доступным шагом.'
-   :'На этот шаг не ведёт ни один переход. На предыдущем экране выберите его в поле «Далее» или в области «Переход».';
+   :'На этот шаг не ведёт ни один переход. На предыдущем экране выберите его в поле «Далее» или в области «Дополнительный переход».';
   warnings.push({id:n.id,text:'«'+n.title+'» сотрудник не увидит при прохождении с начала. '+reason+' Если это запасной экран, предупреждение можно оставить.'});
  }
  const ending=new Set(p.steps.filter(n=>n.type==='end').map(n=>n.id));let changed=true;while(changed){changed=false;for(const n of p.steps)if(!ending.has(n.id)&&links(n).some(e=>ending.has(e.to))){ending.add(n.id);changed=true;}}
@@ -296,5 +297,5 @@ function addGuide(p){
 function addIntro(p){if(p.steps.some(n=>n.type==='intro'))return;const intro=node('intro',p.groups[0].id);intro.next=p.start;p.steps.unshift(intro);p.start=intro.id;p.layout[intro.id]={x:60,y:20};sequence(p);}
 function fieldCandidates(p,stepId,fieldId){return FieldRules.candidates({...toCourse(p),steps:ordered(p)},stepId,fieldId);}
 function usedFields(p){return FieldRules.remembered(toCourse(p));}
-root.ScenaModel={brandLogo,coursePosition,stepGroup,structure,sectionEntries,moveSectionCard,sectionTitle,ensureCourseEnd,addSectionEnd,addSectionMenu,sectionCard,sectionMenu,guideNode,addGuide,addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,browserTemplate,field,links,toCourse,exportCourse,previewCourse,previewFrom,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
+root.ScenaModel={brandLogo,coursePosition,stepGroup,structure,sectionEntries,moveSectionCard,sectionTitle,ensureCourseEnd,addSectionEnd,addSectionMenu,sectionCard,sectionMenu,guideNode,addGuide,addIntro,fieldCandidates,usedFields,types,descriptions,count,uid,project,node,browserTemplate,field,links,hasPrimaryNext:FieldRules.hasPrimaryNext,toCourse,exportCourse,previewCourse,previewFrom,inspect,link,remove,cleanImport,ordered,sequence,insert,move,moveGroup,removeGroup};
 })(typeof window!=='undefined'?window:globalThis);

@@ -5,7 +5,7 @@ const course={id:'branches',title:'Branches',start:'intro',steps:[{id:'intro',ty
 const bridge2={...bridge,get:()=>JSON.stringify({v:2,course:'branches',step:'intro',errors:2,score:0,done:false,time:6})};const reopened=window.ScenaPlayer.run(course,()=>bridge2);const video=all('video')[0];video.onloadedmetadata();assert.equal(video.currentTime,6);assert.equal(reopened.getState().errors,2);
 console.log('Проигрыватель v2: отложенные последствия, возврат без повтора, несколько полей и восстановление видео проверены.');
 const screens={id:'screens',title:'Screens',start:'main',steps:[
- {id:'main',type:'form',background:'main.png',fields:[{id:'phone',label:'Phone',rule:'any',rect:{x:5,y:10,w:30,h:10}}],next:'finish',
+ {id:'main',type:'form',background:'main.png',fields:[{id:'phone',label:'Phone',rule:'any',rect:{x:5,y:10,w:30,h:10}}],next:'finish',showNext:true,
   jumps:[{id:'orders',label:'Orders',next:'orders',checkBeforeJump:false,rect:{x:50,y:5,w:20,h:10}}]},
  {id:'orders',type:'click',background:'orders.png',jumps:[{id:'back',label:'Back',next:'main',rect:{x:5,y:5,w:15,h:10}}]},
  {id:'finish',type:'end'}
@@ -22,7 +22,10 @@ assert.equal(all('input')[0].value,'+7 701');
 assert.equal(screenPlayer.getState().errors,0);
 assert.ok(!JSON.stringify(saved).includes('+7 701'));
 console.log('Переход между скриншотами сохраняет незавершённый ввод в сеансе.');
-// A hotspot can finish the course directly, without a screenshot destination.
+// A hotspot can finish the course when it is the only active path forward.
+screens.steps[0].showNext=false;
+screens.steps[0].next='inactive-target';
+assert.throws(()=>ScenaSCORM.validate(screens),/Из начала нельзя достичь завершения/);
 screens.steps[0].jumps.push({id:'done',label:'Finish here',next:'finish',checkBeforeJump:false,rect:{x:70,y:5,w:20,h:10}});
 assert.equal(ScenaSCORM.validate(screens),true);
 const finishViaArea=window.ScenaPlayer.run(screens,()=>bridge);
@@ -30,7 +33,9 @@ click('Finish here');
 assert.equal(finishViaArea.getState().step,'finish');
 assert.equal(finishViaArea.getState().done,true);
 console.log('Область перехода открывает завершающий слайд.');
-screens.steps[0].showNext=false;
+require('../modules/scorm/player.js');
+assert.doesNotMatch(ScenaSCORM.preview(screens,{'main.png':'main.png','orders.png':'orders.png'}),/inactive-target/);
+screens.steps[0].next='finish';
 window.ScenaPlayer.run(screens,()=>bridge);
 assert.ok(nodes.screen.all().some(e=>e.className==='navigation'&&e.style.display==='none'));
 screens.steps[0].showNext=true;
@@ -84,7 +89,7 @@ all('form')[0].onsubmit({preventDefault(){}});
 assert.equal(strictClickPlayer.getState().errors,2);
 console.log('Свободные клики не штрафуются при отключённой настройке. Проверка неверного ввода сохраняется.');
 const selectionCourse={id:'selection',title:'Выбор области',start:'main',steps:[
- {id:'main',type:'form',background:'main.png',fields:[{id:'row',kind:'selection',label:'Строка клиента',rule:'exact',rect:{x:10,y:20,w:70,h:8}}],next:'end',jumps:[{id:'tab',label:'Заказы',next:'orders',rect:{x:5,y:5,w:20,h:8}}]},
+ {id:'main',type:'form',background:'main.png',fields:[{id:'row',kind:'selection',label:'Строка клиента',rule:'exact',rect:{x:10,y:20,w:70,h:8}}],next:'end',showNext:true,jumps:[{id:'tab',label:'Заказы',next:'orders',rect:{x:5,y:5,w:20,h:8}}]},
  {id:'orders',type:'click',background:'orders.png',jumps:[{id:'back',label:'Назад',next:'main',rect:{x:5,y:5,w:20,h:8}}]},
  {id:'end',type:'end'}
 ]};
@@ -111,6 +116,7 @@ all('form')[0].onsubmit({preventDefault(){}});
 assert.equal(selectionPlayer.getState().done,true);
 console.log('Выбор области: без перехода и ошибок, повторное снятие, восстановление между экранами и необязательная проверка.');
 // A required choice must also guard a hotspot, including a direct completion target.
+selectionCourse.steps[0].showNext=false;
 selectionCourse.steps[0].jumps.push({id:'finish',label:'Готово',next:'end',rect:{x:75,y:80,w:20,h:10}});
 const guardedSelection=window.ScenaPlayer.run(selectionCourse,()=>bridge);
 click('Готово');

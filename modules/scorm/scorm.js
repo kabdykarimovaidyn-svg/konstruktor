@@ -3,7 +3,15 @@
 'use strict';
 const enc=new TextEncoder();
 function escapeXML(value){return String(value).replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));}
+const fieldRules=()=>root.ScenaFields||(typeof require==='function'?require('./fields.js'):null);
+function playableCopy(course){
+ const clone=JSON.parse(JSON.stringify(course));
+ for(const step of clone.steps)if(!fieldRules().hasPrimaryNext(step))delete step.next;
+ return clone;
+}
 function validate(course){
+ const fields=fieldRules();
+ if(!fields)throw Error('Модуль проверки полей не загружен.');
  if(!root.ScenaVisuals&&typeof require==='function')require('./visuals.js');
  if(!course||!/^[-a-zA-Z0-9_]{1,80}$/.test(course.id)||!course.title)throw Error('Нужны ID курса и название.');
  if(!Array.isArray(course.steps)||!course.steps.length||course.steps.length>500)throw Error('Нужно от 1 до 500 шагов.');
@@ -11,7 +19,7 @@ function validate(course){
  course.steps.forEach(s=>{if(!/^[-a-zA-Z0-9_]{1,80}$/.test(s.id)||ids.has(s.id))throw Error('ID шагов должны быть уникальными.');ids.add(s.id);if(!['input','choice','click','video','form','message','return','end','intro','slide'].includes(s.type))throw Error('Неизвестный тип шага.');if(s.type==='end')endings++;});
  if(course.mode==='guided'&&course.steps.filter(step=>step.template==='sections').length!==1)throw Error('Для общего обучения и экзамена нужна одна страница выбора разделов.');
  if(!ids.has(course.start)||!endings)throw Error('Нужны стартовый и финальный шаги.');
- const links=s=>[...(s.template==='sections'?(s.sections||[]).map(card=>card.next).filter(Boolean):[]),...(s.options?.filter(o=>!o.wrong).map(o=>o.next).filter(Boolean)||(s.next?[s.next]:[])),...(s.jumps||[]).map(j=>j.next)];
+ const links=s=>[...(s.template==='sections'?(s.sections||[]).map(card=>card.next).filter(Boolean):[]),...(s.options?.filter(o=>!o.wrong).map(o=>o.next).filter(Boolean)||(fields.hasPrimaryNext(s)&&s.next?[s.next]:[])),...(s.jumps||[]).map(j=>j.next)];
  for(const s of course.steps){
   if(s.decorations!==undefined&&!root.ScenaVisuals.valid(s.decorations))throw Error('Некорректные фигуры или текст.');
   if(s.type==='form'&&(!Array.isArray(s.fields)||!s.fields.length))throw Error('Добавьте поле ввода: '+s.id);
@@ -37,7 +45,7 @@ function validate(course){
  const canEnd=new Set(course.steps.filter(s=>s.type==='end').map(s=>s.id));let changed=true;
  while(changed){changed=false;for(const s of course.steps)if(!canEnd.has(s.id)&&links(s).some(id=>canEnd.has(id))){canEnd.add(s.id);changed=true;}}
  if([...reachable].some(id=>!canEnd.has(id)))throw Error('В сценарии есть ветка без пути к завершению.');
- const fields=root.ScenaFields||(typeof require==='function'?require('./fields.js'):null);if(!fields)throw Error('Модуль проверки полей не загружен.');const issues=[...(course.previewScope==='step'?[]:fields.sectionIssues(course)),...fields.issues(course)];if(issues.length)throw Error(issues[0].message);
+ const issues=[...(course.previewScope==='step'?[]:fields.sectionIssues(course)),...fields.issues(course)];if(issues.length)throw Error(issues[0].message);
  return true;
 }
 function runtime(win){
@@ -65,7 +73,7 @@ function zip(files){if(files.length>65535)throw Error('Слишком много
 }
 async function build(course,assets={}){
  const player=(root.ScenaPlayer||((typeof require==='function')&&(require('./player.js'),root.ScenaPlayer))).run,css=root.ScenaPlayer.css;
- validate(course);const clone=JSON.parse(JSON.stringify(course)),files=[];const allowed=new Set(Object.keys(assets));
+ validate(course);const clone=playableCopy(course),files=[];const allowed=new Set(Object.keys(assets));
  for(const path of allowed){if(!/^media\/[a-zA-Z0-9_.-]+$/.test(path))throw Error('Небезопасный путь: '+path);const input=assets[path];const bytes=input instanceof Uint8Array?input:input instanceof ArrayBuffer?new Uint8Array(input):typeof input?.arrayBuffer==='function'?new Uint8Array(await input.arrayBuffer()):null;if(!bytes||!bytes.length)throw Error('Пустой или неподдерживаемый файл: '+path);files.push([path,bytes]);}
  if(clone.theme?.logo&&!allowed.has(clone.theme.logo))throw Error('Логотип не включён в пакет.');
  for(const s of clone.steps)for(const key of ['src','background'])if(s[key]&&!allowed.has(s[key]))throw Error('Медиафайл не включён в пакет: '+s[key]);
@@ -78,7 +86,7 @@ async function build(course,assets={}){
  files.unshift(['imsmanifest.xml',manifest]);return new Blob([zip(files)],{type:'application/zip'});
 }
 function preview(course,assets={}){
- validate(course);const clone=JSON.parse(JSON.stringify(course));clone.preview=true;
+ validate(course);const clone=playableCopy(course);clone.preview=true;
  for(const step of clone.steps)for(const key of ['src','background'])if(step[key]){if(!assets[step[key]])throw Error('Не найден медиафайл: '+step[key]);step[key]=assets[step[key]];}
  for(const step of clone.steps)for(const v of step.decorations||[])if(v.type==='image'){if(!assets[v.src])throw Error('Не найдена картинка: '+v.src);v.src=assets[v.src];}
  if(clone.theme?.logo){if(!assets[clone.theme.logo])throw Error('Не найден логотип.');clone.theme.logo=assets[clone.theme.logo];}
