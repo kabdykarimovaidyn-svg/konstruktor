@@ -9,7 +9,11 @@ class E{
  getBoundingClientRect(){return {height:({Small:16,Tall:38,Password:20,List:14}[this['aria-label']]||600)*scale};}
 }
 const nodes=Object.fromEntries(['title','step','task','screen','feedback','errors'].map(k=>[k,new E('div')]));
-const document={getElementById:k=>nodes[k],createElement:t=>new E(t),createTextNode:s=>s,addEventListener(){}};
+const events={};
+const document={getElementById:k=>nodes[k],createElement:t=>new E(t),createTextNode:s=>s,addEventListener(k,fn){events[k]=fn;}};
+document.documentElement=new E('html');
+document.documentElement.requestFullscreen=async()=>{document.fullscreenElement=document.documentElement;events.fullscreenchange();};
+document.exitFullscreen=async()=>{document.fullscreenElement=null;events.fullscreenchange();};
 const window={addEventListener(k,fn){if(k==='resize')resize=fn;},getComputedStyle(){return {paddingLeft:'8',paddingRight:'8',paddingTop:'8',paddingBottom:'8'};}};
 const ctx={document,window,console,Date};vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('path').join(__dirname,'../modules/scorm/player.js'),'utf8'),ctx);
 const fields=[{id:'small',label:'Small',rect:{x:0,y:0,w:30,h:3}},{id:'tall',label:'Tall',rect:{x:0,y:10,w:30,h:7}},{id:'pass',label:'Password',inputType:'password',rect:{x:0,y:20,w:30,h:4}},{id:'list',label:'List',kind:'select',choices:'One\nTwo',rect:{x:0,y:30,w:30,h:3}}];
@@ -26,3 +30,18 @@ assert.equal(inputs[0].value,'A long address must remain unchanged');
 scale=2;nodes.screen.all().find(e=>e.textContent==='Увеличить').onclick();
 assert.ok(parseFloat(inputs[1].style.fontSize)>24,'Zoom scales the font cap too');
 console.log('Screenshot text/password/list fonts fit individual heights, resize and zoom without changing values.');
+const actions=nodes.screen.all().find(e=>e.className==='screen-actions');
+const [zoom,fullscreen]=actions.children.filter(e=>e.tagName==='BUTTON');
+assert.equal(zoom.textContent,'Вписать');
+assert.equal(fullscreen.textContent,'На весь экран');
+(async()=>{
+ await fullscreen.onclick();
+ assert.equal(document.fullscreenElement,document.documentElement);
+ assert.equal(fullscreen.textContent,'Свернуть');
+ assert.equal(inputs[0].value,'A long address must remain unchanged');
+ await document.exitFullscreen();
+ assert.equal(fullscreen.textContent,'На весь экран');
+ await fullscreen.onclick();
+ await fullscreen.onclick();
+ assert.equal(document.fullscreenElement,null);
+})().catch(error=>{console.error(error);process.exitCode=1;});
